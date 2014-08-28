@@ -43,9 +43,10 @@ module Mongoid
       unless kind_of?(Mongoid::Attributes::Dynamic)      
         embedded_attrs = {}
         self.embedded_relations.keys.each do |relation_key|
-          embedded_attrs[relation_key] = self.send(self.embedded_relations[relation_key][:name]).map do |relation|
+          embedded_relation = self.send(self.embedded_relations[relation_key][:name])
+          embedded_attrs[relation_key] = embedded_relation.map do |relation|
             relation.send(:clone_attr)
-          end
+          end if embedded_relation && embedded_relation.is_a?(Array)
         end
         attrs.merge!(embedded_attrs)
         attrs = attrs.slice(*self.fields.keys, *self.embedded_relations.keys, *embedded_attrs.keys) 
