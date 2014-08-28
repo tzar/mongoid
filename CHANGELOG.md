@@ -3,6 +3,14 @@
 For instructions on upgrading to newer versions, visit
 [mongoid.org](http://mongoid.org/en/mongoid/docs/upgrading.html).
 
+## 4.0.1
+
+### Resolved Issues
+
+* \#3703 pluck method should not compact the values. (Arthur Neves)
+
+* \#3773 Use nanoseconds for cache_key timestamp instead of plain seconds. (Máximo Mussini)
+
 ## 4.0.0
 
 ### Major Changes (Backwards Incompatible)
@@ -138,7 +146,7 @@ For instructions on upgrading to newer versions, visit
 
 * \#3138 `update_attributes` can now be accessed simply by calling `update`.
 
-* \#3083 A new rake task: `rake mongoid:remove_undefined_indexes` has been added to
+* \#3083 A new rake task: `rake db:mongoid:remove_undefined_indexes` has been added to
   remove indexes from the database that are not explicitly defined in the models.
   (Aidan Feldman)
 
