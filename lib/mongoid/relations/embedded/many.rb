@@ -161,7 +161,7 @@ module Mongoid
         #
         # @example Delete the matching documents.
         #   person.addresses.delete_if do |doc|
-        #     doc.state = "GA"
+        #     doc.state == "GA"
         #   end
         #
         # @return [ Many, Enumerator ] The relation or an enumerator if no
@@ -170,7 +170,8 @@ module Mongoid
         # @since 3.1.0
         def delete_if
           if block_given?
-            target.each do |doc|
+            dup_target = target.dup
+            dup_target.each do |doc|
               delete(doc) if yield(doc)
             end
             self
