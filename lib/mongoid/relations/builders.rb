@@ -63,9 +63,8 @@ module Mongoid
         #
         # @since 2.0.0.rc.1
         def builder(name, metadata)
-          re_define_method("build_#{name}") do |*args|
-            attributes, options = parse_args(*args)
-            document = Factory.build(metadata.klass, attributes)
+          re_define_method("build_#{name}") do |attributes = {}, type = metadata.klass|
+            document = Factory.build(type, attributes)
             _building do
               child = send("#{name}=", document)
               child.run_callbacks(:build)
@@ -88,9 +87,8 @@ module Mongoid
         #
         # @since 2.0.0.rc.1
         def creator(name, metadata)
-          re_define_method("create_#{name}") do |*args|
-            attributes, options = parse_args(*args)
-            document = Factory.build(metadata.klass, attributes)
+          re_define_method("create_#{name}") do |attributes = {}, type = metadata.klass|
+            document = Factory.build(type, attributes)
             doc = send("#{name}=", document)
             doc.save
             save if new_record? && metadata.stores_foreign_key?
