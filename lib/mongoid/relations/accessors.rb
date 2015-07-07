@@ -136,10 +136,10 @@ module Mongoid
       #
       # @since 3.0.0
       def without_autobuild
-        Threaded.begin_execution("without_autobuild")
+        Threaded.begin_execution("without_autobuild".freeze)
         yield
       ensure
-        Threaded.exit_execution("without_autobuild")
+        Threaded.exit_execution("without_autobuild".freeze)
       end
 
       module ClassMethods

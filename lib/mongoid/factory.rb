@@ -37,7 +37,7 @@ module Mongoid
     #
     # @return [ Document ] The instantiated document.
     def from_db(klass, attributes = nil, selected_fields = nil)
-      type = (attributes || {})["_type"]
+      type = (attributes || {})["_type".freeze]
       if type.blank?
         klass.instantiate(attributes, selected_fields)
       else
