@@ -89,7 +89,9 @@ module Mongoid
         def creator(name, metadata)
           re_define_method("create_#{name}") do |attributes = {}, type = metadata.klass|
             document = Factory.build(type, attributes)
-            doc = send("#{name}=", document)
+            doc = _assigning do
+              send("#{name}=", document)
+            end
             doc.save
             save if new_record? && metadata.stores_foreign_key?
             doc
