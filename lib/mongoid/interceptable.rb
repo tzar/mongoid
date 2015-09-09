@@ -39,6 +39,9 @@ module Mongoid
       define_model_callbacks :create, :destroy, :save, :update, :upsert
 
       attr_accessor :before_callback_halted
+
+      alias_method :__run_callbacks, :run_callbacks
+      alias_method :run_callbacks, :run_callbacks_with_children
     end
 
     # Is the provided type of callback executable by this document?
@@ -123,7 +126,7 @@ module Mongoid
     # @return [ Document ] The document
     #
     # @since 2.3.0
-    def run_callbacks(kind, *args, &block)
+    def run_callbacks_with_children(kind, *args, &block)
       cascadable_children(kind).each do |child|
         # This is returning false for some destroy tests on 4.1.0.beta1,
         # causing them to fail since 4.1.0 expects a block to be passed if the
@@ -131,11 +134,14 @@ module Mongoid
         # return value gets interpreted as false and halts the chain.
         #
         # @see https://github.com/rails/rails/blob/master/activesupport/lib/active_support/callbacks.rb#L79
-        if child.run_callbacks(child_callback_type(kind, child), *args) == false
+        if child.run_callbacks_without_children(child_callback_type(kind, child), *args) == false
           return false
         end
       end
-      callback_executable?(kind) ? super(kind, *args, &block) : true
+      __run_callbacks(kind, *args, &block)
+    end
+    def run_callbacks_without_children(kind, *args, &block)
+      callback_executable?(kind) ? __run_callbacks(kind, *args, &block) : true
     end
 
     private
