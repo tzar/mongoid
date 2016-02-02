@@ -130,7 +130,6 @@ module Mongoid
       mods = Modifiers.new
       generate_atomic_updates(mods, self)
       _children.each do |child|
-        child.process_flagged_destroys
         generate_atomic_updates(mods, child)
       end
       mods
@@ -332,6 +331,9 @@ module Mongoid
         flagged_destroys.each(&:call)
       end
       flagged_destroys.clear
+      _children.each do |child|
+        child.process_flagged_destroys
+      end
     end
 
     private
