@@ -95,8 +95,7 @@ module Mongoid
         if !respond_to?("#{name}=") && store_as = aliased_fields.invert[name.to_s]
           name = store_as
         end
-        responds = respond_to?("#{name}=")
-        raise Errors::UnknownAttribute.new(self.class, name) unless responds
+        return unless responds = respond_to?("#{name}=")
         send("#{name}=", value)
       end
 
