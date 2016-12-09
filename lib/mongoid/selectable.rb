@@ -38,7 +38,7 @@ module Mongoid
       if persisted? && _id_changed?
         _parent.atomic_selector
       else
-        _root.atomic_selector.merge("#{atomic_path}._id" => _id)
+        _parent.atomic_selector.merge("#{atomic_path}._id" => _id)
       end
     end
 

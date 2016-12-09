@@ -95,8 +95,13 @@ module Mongoid
         if !respond_to?("#{name}=", true) && store_as = aliased_fields.invert[name.to_s]
           name = store_as
         end
-        return unless responds = respond_to?("#{name}=", true)
-        send("#{name}=", value)
+        if respond_to?("#{name}=", true)
+          send("#{name}=", value)
+        elsif _loading?
+          return
+        else
+          raise Errors::UnknownAttribute.new(self.class, name)
+        end
       end
 
       # Process all the pending nested attributes that needed to wait until
