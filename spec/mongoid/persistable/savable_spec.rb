@@ -83,6 +83,24 @@ describe Mongoid::Persistable::Savable do
             end
           end
         end
+
+        context 'when the embedded document is unchanged' do
+
+          let(:kangaroo) do
+            Kangaroo.new
+          end
+
+          after do
+            Kangaroo.destroy_all
+          end
+
+          it 'only makes one call to the database' do
+            allow(Kangaroo.collection).to receive(:insert).once
+            expect_any_instance_of(Mongo::Collection::View).to receive(:update_one).never
+            kangaroo.build_baby
+            kangaroo.save
+          end
+        end
       end
     end
 
@@ -395,7 +413,7 @@ describe Mongoid::Persistable::Savable do
         end
       end
 
-      it "reads for persistance as a UTC Time" do
+      it "reads for persistence as a UTC Time" do
         expect(user.changes["last_login"].last.class).to eq(Time)
       end
 
@@ -414,7 +432,7 @@ describe Mongoid::Persistable::Savable do
         end
       end
 
-      it "reads for persistance as a UTC Time" do
+      it "reads for persistence as a UTC Time" do
         expect(user.changes["account_expires"].last.class).to eq(Time)
       end
 

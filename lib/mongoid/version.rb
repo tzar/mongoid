@@ -1,4 +1,4 @@
 # encoding: utf-8
 module Mongoid
-  VERSION = "4.0.2"
+  VERSION = "5.1.6"
 end

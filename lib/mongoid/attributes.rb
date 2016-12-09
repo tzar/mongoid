@@ -176,7 +176,8 @@ module Mongoid
             attribute_will_change!(access)
           end
           if localized
-            (attributes[access] ||= {}).merge!(typed_value)
+            attributes[access] ||= {}
+            attributes[access].merge!(typed_value)
           else
             attributes[access] = typed_value
           end
@@ -258,7 +259,7 @@ module Mongoid
       if field && field.localized?
         selection.key?("#{name}.#{::I18n.locale}")
       else
-        selection.key?(name)
+        selection.key?(name) || selection.keys.collect { |k| k.partition('.').first }.include?(name)
       end
     end
 
@@ -294,7 +295,7 @@ module Mongoid
     module ClassMethods
 
       # Alias the provided name to the original field. This will provide an
-      # aliased getter, setter, existance check, and all dirty attribute
+      # aliased getter, setter, existence check, and all dirty attribute
       # methods.
       #
       # @example Alias the attribute.
@@ -343,6 +344,13 @@ module Mongoid
           raise Mongoid::Errors::InvalidValue.new(fields[access].type, value.class)
         end
       end
+    end
+
+    def lookup_attribute_presence(name, value)
+      if localized_fields.has_key?(name)
+        value = localized_fields[name].send(:lookup, value)
+      end
+      value.present?
     end
   end
 end

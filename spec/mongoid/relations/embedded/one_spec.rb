@@ -768,6 +768,37 @@ describe Mongoid::Relations::Embedded::One do
     end
   end
 
+  describe "when the relationship is polymorphic" do
+
+    context "when updating an aliased embedded document" do
+
+      context "when the embedded document inherits its relationship" do
+
+        let(:courier_job) do
+          CourierJob.create
+        end
+
+        let(:old_child) do
+          ShipmentAddress.new
+        end
+
+        let(:new_child) do
+          ShipmentAddress.new
+        end
+
+        before do
+          courier_job.drop_address = old_child
+          courier_job.update_attribute(:drop_address, new_child)
+          courier_job.reload
+        end
+
+        it "the child is embedded correctly" do
+          expect(courier_job.drop_address).to eq(new_child)
+        end
+      end
+    end
+  end
+
   describe ".embedded?" do
 
     it "returns true" do
@@ -947,7 +978,7 @@ describe Mongoid::Relations::Embedded::One do
     context "when a parent was removed outside of mongoid" do
 
       before do
-        person.collection.where(_id: person.id).update(
+        person.collection.find(_id: person.id).update_one(
           "$pull" => { "addresses" => { _id: address_one.id }}
         )
       end
@@ -982,7 +1013,7 @@ describe Mongoid::Relations::Embedded::One do
     before do
       band.collection.
         find(_id: band.id).
-        update("$set" => { label: { name: "Mute" }})
+        update_one("$set" => { label: { name: "Mute" }})
     end
 
     context "when loading the documents" do
@@ -1017,6 +1048,20 @@ describe Mongoid::Relations::Embedded::One do
           expect(label.reload.name).to eq("Interscope")
         end
       end
+    end
+  end
+
+  context "when parent validation of child is set to false" do
+
+    let(:building) do
+      building = Building.create
+      building.building_address = BuildingAddress.new
+      building.save
+      building.reload
+    end
+
+    it "parent successfully embeds an invalid child" do
+      expect(building.building_address).to be_a(BuildingAddress)
     end
   end
 end

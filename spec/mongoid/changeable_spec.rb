@@ -811,6 +811,58 @@ describe Mongoid::Changeable do
       end
     end
 
+    context "when changed? has been called before child elements size change" do
+
+      let(:person) do
+        Person.create
+      end
+
+      let(:address) do
+        person.addresses.create(street: "hobrecht")
+      end
+
+      let!(:location) do
+        address.locations.create(name: "home")
+      end
+
+      before do
+        person.changed?
+      end
+
+      context "when adding via new" do
+
+        before do
+          address.locations.new
+        end
+
+        it "returns true" do
+          expect(person).to be_changed
+        end
+      end
+
+      context "when adding via build" do
+
+        before do
+          address.locations.build
+        end
+
+        it "returns true" do
+          expect(person).to be_changed
+        end
+      end
+
+      context "when adding via create" do
+
+        before do
+          address.locations.create
+        end
+
+        it "returns false" do
+          expect(person).to_not be_changed
+        end
+      end
+    end
+
     context "when a deeply embedded child has changed" do
 
       let(:person) do
@@ -888,7 +940,7 @@ describe Mongoid::Changeable do
       end
 
       it "returns a hash with indifferent access" do
-        expect(person.changes["title"]).to eq(
+        expect(person.changes[:title]).to eq(
           [ nil, "Captain Obvious" ]
         )
       end
@@ -1571,6 +1623,92 @@ describe Mongoid::Changeable do
 
     it "does not set the association to nil when hitting the database" do
       expect(person.setters).to_not eq({ "addresses" => nil })
+    end
+  end
+
+  context 'when nesting deeply embedded documents' do
+
+    context 'when persisting the root document' do
+
+      let!(:person) do
+        Person.create
+      end
+
+      it 'is not marked as changed' do
+        expect(person).to_not be_changed
+      end
+
+      context 'when creating a new first level embedded document' do
+
+        let!(:address) do
+          person.addresses.new(street: 'goltzstr.')
+        end
+
+        it 'flags the root document as changed' do
+          expect(person).to be_changed
+        end
+
+        it 'flags the first level child as changed' do
+          expect(address).to be_changed
+        end
+
+        context 'when building the lowest level document' do
+
+          before do
+            person.save
+          end
+
+          let!(:code) do
+            address.build_code
+          end
+
+          it 'flags the root document as changed' do
+            expect(person).to be_changed
+          end
+
+          it 'flags the first level embedded document as changed' do
+            expect(address).to be_changed
+          end
+
+          it 'flags the lowest level embedded document as changed' do
+            expect(code).to be_changed
+          end
+
+          context 'when saving the hierarchy' do
+
+            before do
+              person.save
+            end
+
+            let(:reloaded) do
+              Person.find(person.id)
+            end
+
+            it 'saves the first embedded document' do
+              expect(reloaded.addresses.first).to eq(address)
+            end
+
+            it 'saves the lowest level embedded document' do
+              expect(reloaded.addresses.first.code).to eq(code)
+            end
+
+            context 'when embedding further' do
+
+              let!(:deepest) do
+                reloaded.addresses.first.code.build_deepest
+              end
+
+              before do
+                reloaded.save
+              end
+
+              it 'saves the deepest embedded document' do
+                expect(reloaded.reload.addresses.first.code.deepest).to eq(deepest)
+              end
+            end
+          end
+        end
+      end
     end
   end
 end

@@ -20,7 +20,7 @@ describe Mongoid::Copyable do
       end
 
       let!(:address) do
-        person.addresses.build(street: "Bond")
+        person.addresses.build(street: "Bond", name: "Bond")
       end
 
       let!(:name) do
@@ -42,7 +42,7 @@ describe Mongoid::Copyable do
         end
 
         before do
-          Band.collection.find(_id: band.id).update("$set" => { "id" => 1234 })
+          Band.collection.find(_id: band.id).update_one("$set" => { "id" => 1234 })
         end
 
         let!(:cloned) do
@@ -51,6 +51,25 @@ describe Mongoid::Copyable do
 
         it "does not set the id field as the _id" do
           expect(cloned.id).to_not eq(1234)
+        end
+      end
+
+      context "when a document has old renamed fields" do
+
+        let!(:actor) do
+          Actor.create(name: "test")
+        end
+
+        before do
+          Actor.collection.find(_id: actor.id).update_one("$set" => { "this_is_not_a_field" => 1 })
+        end
+
+        let(:cloned) do
+          actor.reload.send(method)
+        end
+
+        it "copies the document without error" do
+          expect(cloned.this_is_not_a_field).to eq(1)
         end
       end
 
@@ -74,6 +93,7 @@ describe Mongoid::Copyable do
           I18n.enforce_available_locales = false
           I18n.locale = 'pt_BR'
           person.desc = "descrição"
+          person.addresses.first.name = "descrição"
           person.save
         end
 
@@ -102,6 +122,16 @@ describe Mongoid::Copyable do
         it "sets to nil an nonexistent lang" do
           I18n.locale = :fr
           expect(copy.desc).to be_nil
+        end
+
+        it 'sets embedded translations' do
+          I18n.locale = 'pt_BR'
+          expect(copy.addresses.first.name).to eq("descrição")
+        end
+
+        it 'sets embedded english version' do
+          I18n.locale = :en
+          expect(copy.addresses.first.name).to eq("Bond")
         end
       end
 

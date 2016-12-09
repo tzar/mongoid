@@ -2,10 +2,8 @@
 require "mongoid/contextual/atomic"
 require "mongoid/contextual/aggregable/mongo"
 require "mongoid/contextual/command"
-require "mongoid/contextual/find_and_modify"
 require "mongoid/contextual/geo_near"
 require "mongoid/contextual/map_reduce"
-require "mongoid/contextual/text_search"
 require "mongoid/relations/eager"
 
 module Mongoid
@@ -17,8 +15,13 @@ module Mongoid
       include Relations::Eager
       include Queryable
 
-      # @attribute [r] query The Moped query.
-      attr_reader :query
+      # Options constant.
+      #
+      # @since 5.0.0
+      OPTIONS = [ :hint, :limit, :skip, :sort, :batch_size, :max_scan, :snapshot, :comment, :read ].freeze
+
+      # @attribute [r] view The Mongo collection view.
+      attr_reader :view
 
       # Is the context cached?
       #
@@ -37,27 +40,23 @@ module Mongoid
       # @example Get the number of matching documents.
       #   context.count
       #
-      # @example Get the count of documents matching the provided.
-      #   context.count(document)
+      # @example Get the count of documents with the provided options.
+      #   context.count(limit: 1)
       #
       # @example Get the count for where the provided block is true.
       #   context.count do |doc|
       #     doc.likes > 1
       #   end
       #
-      # @param [ Document ] document A document to match or true if wanting
-      #   skip and limit to be factored into the count.
+      # @param [ Hash ] options The options, such as skip and limit to be factored
+      #   into the count.
       #
       # @return [ Integer ] The number of matches.
       #
       # @since 3.0.0
-      def count(document = false, &block)
+      def count(options = {}, &block)
         return super(&block) if block_given?
-        if document.is_a?(Document)
-          return collection.find(criteria.and(_id: document._id).selector).count
-        end
-        return query.count(document) if document
-        try_cache(:count) { query.count }
+        try_cache(:count) { view.count(options) }
       end
 
       # Delete all documents in the database that match the selector.
@@ -70,7 +69,7 @@ module Mongoid
       # @since 3.0.0
       def delete
         self.count.tap do
-          query.remove_all
+          view.delete_many
         end
       end
       alias :delete_all :delete
@@ -103,7 +102,7 @@ module Mongoid
       #
       # @since 3.0.0
       def distinct(field)
-        query.distinct(klass.database_field_name(field))
+        view.distinct(klass.database_field_name(field))
       end
 
       # Iterate over the context. If provided a block, yield to a Mongoid
@@ -146,7 +145,7 @@ module Mongoid
         return @count > 0 if instance_variable_defined?(:@count)
 
         try_cache(:exists) do
-          !!(query.dup.select(_id: 1).limit(1).first)
+          !!(view.projection(_id: 1).limit(1).first)
         end
       end
 
@@ -159,28 +158,65 @@ module Mongoid
       #
       # @since 3.0.0
       def explain
-        query.explain
+        view.explain
       end
 
       # Execute the find and modify command, used for MongoDB's
       # $findAndModify.
       #
       # @example Execute the command.
-      #   context.find_and_modify({ "$inc" => { likes: 1 }}, new: true)
+      #   context.find_one_and_update({ "$inc" => { likes: 1 }})
       #
       # @param [ Hash ] update The updates.
       # @param [ Hash ] options The command options.
       #
-      # @option options [ true, false ] :new Return the updated document.
-      # @option options [ true, false ] :remove Delete the first document.
+      # @option options [ :before, :after ] :return_document Return the updated document
+      #   from before or after update.
       # @option options [ true, false ] :upsert Create the document if it doesn't exist.
       #
       # @return [ Document ] The result of the command.
       #
-      # @since 3.0.0
-      def find_and_modify(update, options = {})
-        if doc = FindAndModify.new(collection, criteria, update, options).result
-          Factory.from_db(klass, doc) if doc.any?
+      # @since 5.0.0
+      def find_one_and_update(update, options = {})
+        if doc = view.find_one_and_update(update, options)
+          Factory.from_db(klass, doc)
+        end
+      end
+
+      # Execute the find and modify command, used for MongoDB's
+      # $findAndModify.
+      #
+      # @example Execute the command.
+      #   context.find_one_and_update({ likes: 1 })
+      #
+      # @param [ Hash ] update The updates.
+      # @param [ Hash ] options The command options.
+      #
+      # @option options [ :before, :after ] :return_document Return the updated document
+      #   from before or after update.
+      # @option options [ true, false ] :upsert Create the document if it doesn't exist.
+      #
+      # @return [ Document ] The result of the command.
+      #
+      # @since 5.0.0
+      def find_one_and_replace(replacement, options = {})
+        if doc = view.find_one_and_replace(replacement, options)
+          Factory.from_db(klass, doc)
+        end
+      end
+
+      # Execute the find and modify command, used for MongoDB's
+      # $findAndModify. This deletes the found document.
+      #
+      # @example Execute the command.
+      #   context.find_one_and_delete
+      #
+      # @return [ Document ] The result of the command.
+      #
+      # @since 5.0.0
+      def find_one_and_delete
+        if doc = view.find_one_and_delete
+          Factory.from_db(klass, doc)
         end
       end
 
@@ -189,14 +225,21 @@ module Mongoid
       # @example Get the first document.
       #   context.first
       #
+      # @note Mongoid previously added an _id sort when no sort parameters were
+      #   provided explicitly by the user. This caused bad performance issues
+      #   and was not expected, so #first/#last will no longer guarantee order
+      #   if no sorting parameters are provided. For order guarantees - a sort
+      #   must be explicitly provided.
+      #
       # @return [ Document ] The first document.
       #
       # @since 3.0.0
       def first
         return documents.first if cached? && cache_loaded?
         try_cache(:first) do
-          with_sorting do
-            with_eager_loading(query.first)
+          if raw_doc = view.limit(-1).first
+            doc = Factory.from_db(klass, raw_doc, criteria.options[:fields])
+            eager_load([doc]).first
           end
         end
       end
@@ -209,7 +252,10 @@ module Mongoid
       # @since 4.0.2
       def find_first
         return documents.first if cached? && cache_loaded?
-        with_eager_loading(query.first)
+        if raw_doc = view.first
+          doc = Factory.from_db(klass, raw_doc, criteria.options[:fields])
+          eager_load([doc]).first
+        end
       end
 
       # Execute a $geoNear command against the database.
@@ -254,13 +300,12 @@ module Mongoid
         if block_given?
           super(&block)
         else
-          field = field.to_sym
-          criteria.only(field).map(&field.to_proc)
+          criteria.pluck(field)
         end
       end
 
       # Create the new Mongo context. This delegates operations to the
-      # underlying driver - in Mongoid's case Moped.
+      # underlying driver.
       #
       # @example Create the new context.
       #   Mongo.new(criteria)
@@ -272,7 +317,7 @@ module Mongoid
         @criteria, @klass, @cache = criteria, criteria.klass, criteria.options[:cache]
         @collection = @klass.with(criteria.persistence_options || {}).collection
         criteria.send(:merge_type_selection)
-        @query = collection.find(criteria.selector)
+        @view = collection.find(criteria.selector)
         apply_options
       end
 
@@ -283,13 +328,22 @@ module Mongoid
       # @example Get the last document.
       #   context.last
       #
+      # @note Mongoid previously added an _id sort when no sort parameters were
+      #   provided explicitly by the user. This caused bad performance issues
+      #   and was not expected, so #first/#last will no longer guarantee order
+      #   if no sorting parameters are provided. For order guarantees - a sort
+      #   must be explicitly provided.
+      #
       # @return [ Document ] The last document.
       #
       # @since 3.0.0
       def last
         try_cache(:last) do
           with_inverse_sorting do
-            with_eager_loading(query.first)
+            if raw_doc = view.limit(-1).first
+              doc = Factory.from_db(klass, raw_doc, criteria.options[:fields])
+              eager_load([doc]).first
+            end
           end
         end
       end
@@ -318,7 +372,7 @@ module Mongoid
       #
       # @since 3.0.0
       def limit(value)
-        query.limit(value) and self
+        @view = view.limit(value) and self
       end
 
       # Initiate a map/reduce operation from the context.
@@ -356,12 +410,11 @@ module Mongoid
           hash
         end
 
-        query.dup.select(normalized_select).map do |doc|
-          if normalized_select.size == 1
-            doc[normalized_select.keys.first]
-          else
-            normalized_select.keys.map { |n| doc[n] }
+        view.projection(normalized_select).reduce([]) do |plucked, doc|
+          values = normalized_select.keys.map do |n|
+            n =~ /\./ ? doc[n.partition('.')[0]] : doc[n]
           end
+          plucked << (values.size == 1 ? values.first : values)
         end
       end
 
@@ -376,7 +429,7 @@ module Mongoid
       #
       # @since 3.0.0
       def skip(value)
-        query.skip(value) and self
+        @view = view.skip(value) and self
       end
 
       # Sorts the documents by the provided spec.
@@ -399,20 +452,6 @@ module Mongoid
           apply_option(:sort)
           self
         end
-      end
-
-      # Execute a text command against the database.
-      #
-      # @example Find documents with the text "phase"
-      #   context.text_search("phase")
-      #
-      # @param [ String ] query The text search query.
-      #
-      # @return [ TextSearch ] The TextSearch command.
-      #
-      # @since 4.0.0
-      def text_search(query)
-        TextSearch.new(collection, criteria, query)
       end
 
       # Update the first matching document atomically.
@@ -440,7 +479,7 @@ module Mongoid
       #
       # @since 3.0.0
       def update_all(attributes = nil)
-        update_documents(attributes, :update_all)
+        update_documents(attributes, :update_many)
       end
 
       private
@@ -476,10 +515,10 @@ module Mongoid
       # @return [ true, false ] If the update succeeded.
       #
       # @since 3.0.4
-      def update_documents(attributes, method = :update)
+      def update_documents(attributes, method = :update_one)
         return false unless attributes
         attributes = Hash[attributes.map { |k, v| [klass.database_field_name(k.to_s), v] }]
-        query.send(method, attributes.__consolidate__(klass))
+        view.send(method, attributes.__consolidate__(klass))
       end
 
       # Apply the field limitations.
@@ -492,7 +531,7 @@ module Mongoid
       # @since 3.0.0
       def apply_fields
         if spec = criteria.options[:fields]
-          query.select(spec)
+          @view = view.projection(spec)
         end
       end
 
@@ -506,11 +545,17 @@ module Mongoid
       # @since 3.1.0
       def apply_options
         apply_fields
-        [ :hint, :limit, :skip, :sort, :batch_size, :max_scan ].each do |name|
+        OPTIONS.each do |name|
           apply_option(name)
         end
         if criteria.options[:timeout] == false
-          query.no_timeout
+          @view = view.no_cursor_timeout
+        end
+        if criteria.options[:cursor_type]
+          # @todo: update to use #cursor_type method on view when driver 2.3 is released.
+          # See RUBY-1080
+          @view = view.clone
+          @view.options.merge!(cursor_type: criteria.options[:cursor_type])
         end
       end
 
@@ -524,33 +569,13 @@ module Mongoid
       # @since 3.1.0
       def apply_option(name)
         if spec = criteria.options[name]
-          query.send(name, spec)
-        end
-      end
-
-      # Apply an ascending id sort for use with #first queries, only if no
-      # other sorting is provided.
-      #
-      # @api private
-      #
-      # @example Apply the id sorting params to the given block
-      #   context.with_sorting
-      #
-      # @since 3.0.0
-      def with_sorting
-        begin
-          unless criteria.options.has_key?(:sort)
-            query.sort(_id: 1)
-          end
-          yield
-        ensure
-          apply_option(:sort)
+          @view = view.send(name, spec)
         end
       end
 
       # Map the inverse sort symbols to the correct MongoDB values.
       #
-      #  @api private
+      # @api private
       #
       # @example Apply the inverse sorting params to the given block
       #   context.with_inverse_sorting
@@ -559,9 +584,7 @@ module Mongoid
       def with_inverse_sorting
         begin
           if spec = criteria.options[:sort]
-            query.sort(Hash[spec.map{|k, v| [k, -1*v]}])
-          else
-            query.sort(_id: -1)
+            @view = view.sort(Hash[spec.map{|k, v| [k, -1*v]}])
           end
           yield
         ensure
@@ -625,19 +648,14 @@ module Mongoid
       # @example Get the documents for iteration.
       #   context.documents_for_iteration
       #
-      # @return [ Array<Document>, Moped::Query ] The docs to iterate.
+      # @return [ Array<Document>, Mongo::Collection::View ] The docs to iterate.
       #
       # @since 3.0.0
       def documents_for_iteration
-        if cached? && !documents.empty?
-          documents
-        elsif eager_loadable?
-          docs = query.map{ |doc| Factory.from_db(klass, doc, criteria.options[:fields]) }
-          eager_load(docs)
-          docs
-        else
-          query
-        end
+        return documents if cached? && !documents.empty?
+        return view unless eager_loadable?
+        docs = view.map{ |doc| Factory.from_db(klass, doc, criteria.options[:fields]) }
+        eager_load(docs)
       end
 
       # Yield to the document.
@@ -654,7 +672,7 @@ module Mongoid
       # @since 3.0.0
       def yield_document(document, &block)
         doc = document.respond_to?(:_id) ?
-          document : Factory.from_db(klass, document, criteria.options[:fields])
+            document : Factory.from_db(klass, document, criteria.options[:fields])
         yield(doc)
         documents.push(doc) if cacheable?
       end

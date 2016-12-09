@@ -147,6 +147,35 @@ describe Mongoid::Validatable::UniquenessValidator do
                 Dictionary.reset_callbacks(:validate)
               end
 
+              context "when no attribute is set" do
+
+                context "when no document with no value exists in the database" do
+
+                  let(:dictionary) do
+                    Dictionary.new
+                  end
+
+                  it "returns true" do
+                    expect(dictionary).to be_valid
+                  end
+                end
+
+                context "when a document with no value exists in the database" do
+
+                  before do
+                    Dictionary.create
+                  end
+
+                  let(:dictionary) do
+                    Dictionary.new
+                  end
+
+                  it "returns false" do
+                    expect(dictionary).to_not be_valid
+                  end
+                end
+              end
+
               context "when the attribute is unique" do
 
                 context "when single localization" do
@@ -757,6 +786,23 @@ describe Mongoid::Validatable::UniquenessValidator do
                 expect(dictionary.errors[:name]).to eq([ "is already taken" ])
               end
             end
+          end
+        end
+
+        context "when a range scope is provided" do
+
+          before do
+            Dictionary.validates_uniqueness_of(:name, :scope => Dictionary.where(:year.gte => 1900, :year.lt => 2000))
+            Dictionary.create(name: "French-English", year: 1950)
+            Dictionary.create(name: "French-English", year: 1960)
+          end
+
+          after do
+            Dictionary.reset_callbacks(:validate)
+          end
+
+          it "successfully prevents uniqueness violation" do
+            expect(Dictionary.all.size).to eq(1)
           end
         end
 
@@ -2382,7 +2428,7 @@ describe Mongoid::Validatable::UniquenessValidator do
       Person.reset_callbacks(:validate)
     end
 
-    it "transfers the options to the cloned session" do
+    it "transfers the options to the cloned client" do
       expect {
         Person.create!(ssn: "132-11-1111", username: "asdfsdfA")
       }.to raise_error

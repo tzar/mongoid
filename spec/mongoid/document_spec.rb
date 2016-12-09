@@ -441,6 +441,62 @@ describe Mongoid::Document do
     end
   end
 
+  describe "#as_json" do
+
+    let!(:person) do
+      Person.new(title: "Sir")
+    end
+
+    context "when no options are provided" do
+
+      it "does not apply any options" do
+        expect(person.as_json["title"]).to eq("Sir")
+        expect(person.as_json["age"]).to eq(100)
+      end
+
+      context "when options for the super method are provided" do
+
+        let(:options) do
+          { only: :title }
+        end
+
+        it "passes the options through to the super method" do
+          expect(person.as_json(options)["title"]).to eq("Sir")
+          expect(person.as_json(options).keys).not_to include("age")
+        end
+      end
+    end
+
+    context "when the Mongoid-specific options are provided" do
+
+      let(:options) do
+        { compact: true }
+      end
+
+      it "applies the Mongoid-specific options" do
+        expect(person.as_json(options)["title"]).to eq("Sir")
+        expect(person.as_json(options)["age"]).to eq(100)
+        expect(person.as_json(options).keys).not_to include("lunch_time")
+      end
+
+      context "when options for the super method are provided" do
+
+        let(:options) do
+          { compact: true, only: [:title, :pets, :ssn] }
+        end
+
+        it "passes the options through to the super method" do
+          expect(person.as_json(options)["title"]).to eq("Sir")
+          expect(person.as_json(options)["pets"]).to eq(false)
+        end
+
+        it "applies the Mongoid-specific options" do
+          expect(person.as_json(options).keys).not_to include("ssn")
+        end
+      end
+    end
+  end
+
   describe "#as_document" do
 
     let!(:person) do
@@ -613,25 +669,49 @@ describe Mongoid::Document do
       Person.new
     end
 
-    context "when not frozen" do
+    context "when freezing the model" do
 
-      it "freezes attributes" do
-        expect(person.freeze).to eq(person)
-        expect { person.title = "something" }.to raise_error
+      context "when not frozen" do
+
+        it "freezes attributes" do
+          expect(person.freeze).to eq(person)
+          expect { person.title = "something" }.to raise_error
+        end
+      end
+
+      context "when frozen" do
+
+        before do
+          person.raw_attributes.freeze
+        end
+
+        it "keeps things frozen" do
+          person.freeze
+          expect {
+            person.title = "something"
+          }.to raise_error
+        end
       end
     end
 
-    context "when frozen" do
+    context "when freezing attributes of the model" do
 
-      before do
-        person.raw_attributes.freeze
-      end
+      context "when assigning a frozen value" do
 
-      it "keeps things frozen" do
-        person.freeze
-        expect {
-          person.title = "something"
-        }.to raise_error
+        context "when the frozen value is a hash" do
+
+          let(:hash) do
+            {"foo" => {"bar" => {"baz" => [1,2,3]}}}
+          end
+
+          let(:assign_hash) do
+            person.map = hash.freeze
+          end
+
+          it "no mutation occurs during assignment" do
+            expect{ assign_hash }.not_to raise_error
+          end
+        end
       end
     end
   end

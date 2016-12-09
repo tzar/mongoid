@@ -7,6 +7,10 @@ describe Mongoid::Errors::MongoidError do
   let(:options) { {} }
 
   before do
+    {"message_title" => "message", "summary_title" => "summary", "resolution_title" => "resolution"}.each do |key, name|
+      expect(::I18n).to receive(:translate).with("mongoid.errors.messages.#{key}", {}).and_return(name)
+    end
+
     ["message", "summary", "resolution"].each do |name|
       expect(::I18n).to receive(:translate).
         with("mongoid.errors.messages.#{key}.#{name}", {}).
@@ -19,15 +23,27 @@ describe Mongoid::Errors::MongoidError do
   describe "#compose_message" do
 
     it "sets ivar problem" do
-      expect(error.instance_variable_get(:@problem)).to be
+      expect(error.problem).to be
     end
 
     it "sets ivar summary" do
-      expect(error.instance_variable_get(:@summary)).to be
+      expect(error.summary).to be
     end
 
     it "sets ivar resolution" do
-      expect(error.instance_variable_get(:@resolution)).to be
+      expect(error.resolution).to be
+    end
+
+    it "sets ivar problem_title" do
+      expect(error.instance_variable_get(:@problem_title)).to be
+    end
+
+    it "sets ivar summary_title" do
+      expect(error.instance_variable_get(:@summary_title)).to be
+    end
+
+    it "sets ivar resolution_title" do
+      expect(error.instance_variable_get(:@resolution_title)).to be
     end
   end
 

@@ -40,14 +40,14 @@ describe Mongoid::Findable do
     end
   end
 
-  describe ".find_and_modify" do
+  describe ".find_one_and_update" do
 
     let!(:person) do
       Person.create(title: "Senior")
     end
 
     it "returns the document" do
-      expect(Person.find_and_modify(title: "Junior")).to eq(person)
+      expect(Person.find_one_and_update(title: "Junior")).to eq(person)
     end
   end
 
@@ -483,27 +483,6 @@ describe Mongoid::Findable do
       it "forwards the #{method} to the criteria" do
         expect(Band).to respond_to(method)
       end
-    end
-  end
-
-  describe "#text_search" do
-
-    before do
-      Word.with(database: "admin").mongo_session.command(setParameter: 1, textSearchEnabled: true)
-      Word.create_indexes
-      Word.create!(name: "phase", origin: "latin")
-    end
-
-    after(:all) do
-      Word.remove_indexes
-    end
-
-    let(:search) do
-      Word.text_search("phase")
-    end
-
-    it "returns all fields" do
-      expect(search.first.origin).to eq("latin")
     end
   end
 end

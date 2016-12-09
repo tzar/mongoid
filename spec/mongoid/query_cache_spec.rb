@@ -15,7 +15,7 @@ describe Mongoid::QueryCache do
         Band.all.send(method)
       end
 
-      context "when query cache disable" do
+      context "when query cache is disabled" do
 
         before do
           Mongoid::QueryCache.enabled = false
@@ -54,7 +54,7 @@ describe Mongoid::QueryCache do
       Band.all.to_a
     end
 
-    context "when query cache disable" do
+    context "when query cache is disabled" do
 
       before do
         Mongoid::QueryCache.enabled = false
@@ -75,29 +75,83 @@ describe Mongoid::QueryCache do
         end
       end
 
-      context "when querying only the first" do
-        let(:game) { Game.create!(name: "2048") }
+      context "when the first query has no limit" do
+
+        let(:game) do
+          Game.create!(name: "2048")
+        end
 
         before do
           game.ratings.where(:value.gt => 5).asc(:id).all.to_a
         end
 
-        it "queries again" do
-          expect_query(1) do
+        context "when the next query has a limit" do
+
+          it "uses the cache" do
+            expect_no_queries do
+              game.ratings.where(:value.gt => 5).limit(2).asc(:id).to_a
+            end
+          end
+        end
+      end
+
+      context "when the first query has a limit" do
+
+        let(:game) do
+          Game.create!(name: "2048")
+        end
+
+        before do
+          game.ratings.where(:value.gt => 5).limit(3).asc(:id).all.to_a
+        end
+
+        context "when the next query has a limit" do
+
+          it "queries again" do
+            expect_query(1) do
+              game.ratings.where(:value.gt => 5).limit(2).asc(:id).to_a
+            end
+          end
+        end
+
+        context "when the new query does not have a limit" do
+
+          it "queries again" do
+            expect_query(1) do
+              game.ratings.where(:value.gt => 5).asc(:id).to_a
+            end
+          end
+        end
+      end
+
+      context "when querying only the first" do
+
+        let(:game) do
+          Game.create!(name: "2048")
+        end
+
+        before do
+          game.ratings.where(:value.gt => 5).asc(:id).all.to_a
+        end
+
+        it "does not query again" do
+          expect_no_queries do
             game.ratings.where(:value.gt => 5).asc(:id).first
           end
         end
       end
 
-      context "limiting the result" do
-        it "queries again" do
-          expect_query(1) do
+      context "when limiting the result" do
+
+        it "does not query again" do
+          expect_query(0) do
             Band.limit(2).all.to_a
           end
         end
       end
 
-      context "specifying a different skip value" do
+      context "when specifying a different skip value" do
+
         before do
           Band.limit(2).skip(1).all.to_a
         end
@@ -117,6 +171,46 @@ describe Mongoid::QueryCache do
           Band.where(id: 1).to_a
         end
       end
+    end
+
+    context "when sorting documents" do
+      before do
+        Band.asc(:id).to_a
+      end
+
+      context "with different selector" do
+
+        it "queries again" do
+          expect_query(1) do
+            Band.desc(:id).to_a
+          end
+        end
+      end
+
+      it "does not query again" do
+        expect_query(0) do
+          Band.asc(:id).to_a
+        end
+      end
+    end
+
+    context "when query caching is enabled and the batch_size is set" do
+
+      around(:each) do |example|
+        query_cache_enabled = Mongoid::QueryCache.enabled?
+        Mongoid::QueryCache.enabled = true
+        example.run
+        Mongoid::QueryCache.enabled = query_cache_enabled
+      end
+
+      it "does not raise an error when requesting the second batch" do
+        expect {
+          Band.batch_size(4).where(:views.gte => 0).each do |doc|
+            doc.set(likes: Random.rand(100))
+          end
+        }.not_to raise_error
+      end
+
     end
   end
 
@@ -177,6 +271,37 @@ describe Mongoid::QueryCache do
     end
   end
 
+  context "when reloading a document" do
+
+    let!(:band_id) do
+      Band.create.id
+    end
+
+    context 'when query cache is disabled' do
+
+      before do
+        Mongoid::QueryCache.enabled = false
+      end
+
+      it "queries again" do
+        band = Band.find(band_id)
+        expect_query(1) do
+          band.reload
+        end
+      end
+    end
+
+    context 'when query cache is enabled' do
+
+      it "queries again" do
+        band = Band.find(band_id)
+        expect_query(1) do
+          band.reload
+        end
+      end
+    end
+  end
+
   context "when querying a very large collection" do
 
     before do
@@ -213,7 +338,7 @@ describe Mongoid::QueryCache do
 
     it "does not cache the query" do
       expect(Mongoid::QueryCache).to receive(:cache_table).never
-      Band.collection.indexes.create(name: 1)
+      Band.collection.indexes.create_one(name: 1)
     end
   end
 end

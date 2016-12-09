@@ -124,6 +124,22 @@ module Mongoid
         child.move_changes
         child.new_record = false
       end
+      _reset_memoized_children!
+    end
+
+    # Resets the memoized children on the object. Called internally when an
+    # embedded array changes size.
+    #
+    # @api semiprivate
+    #
+    # @example Reset the memoized children.
+    #   document._reset_memoized_children!
+    #
+    # @return [ nil ] nil.
+    #
+    # @since 5.0.0
+    def _reset_memoized_children!
+      _parent._reset_memoized_children! if _parent
       @__children = nil
     end
 
@@ -137,7 +153,7 @@ module Mongoid
     def _root
       object = self
       while (object._parent) do object = object._parent; end
-      object || self
+      object.with(@persistence_options) || self
     end
 
     # Is this document the root document of the hierarchy?

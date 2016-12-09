@@ -1240,7 +1240,7 @@ describe Mongoid::Relations::Referenced::In do
 
       before do
         Person.collection.find({ _id: person_one.id }).
-          update({ "$set" => { title: "Madam" }})
+          update_one({ "$set" => { title: "Madam" }})
       end
 
       let(:reloaded) do

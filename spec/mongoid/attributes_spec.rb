@@ -38,6 +38,61 @@ describe Mongoid::Attributes do
             it "does not raise an error" do
               expect(from_db.desc).to eq("test")
             end
+
+            context "accessing via []" do
+
+              it "does not raise an error" do
+                expect(from_db["desc"]).to eq("en" => "test")
+              end
+            end
+
+            context "when calling only on a sub-document" do
+
+              let(:title) {"Executive"}
+              let(:city) {"NYC"}
+              let!(:agent) do
+                agent = Agent.new(:title => title)
+                agent.build_address(:city => city)
+                agent.save()
+                agent
+              end
+              let(:from_db) do
+                Agent.only(:title, "address.city").first
+              end
+
+              context "when the field is in the only" do
+
+                it "does not raise an error" do
+                  expect(from_db.address.city).to eq(city)
+                end
+              end
+
+              context "accessing via []" do
+
+                it "does not raise an error" do
+                  expect(from_db["address.city"]).to eq(city)
+                end
+              end
+            end
+          end
+
+          context 'when the attribute is a hash field' do
+
+            before do
+              person.update_attribute(:map, map)
+            end
+
+            let(:map) do
+              { 'dates' => { 'y' => { '2016' => 'Berlin' } } }
+            end
+
+            let(:from_db) do
+              Person.only('map.dates.y.2016').first
+            end
+
+            it "does not raise an error" do
+              expect(from_db.map).to eq(map)
+            end
           end
         end
 
@@ -66,6 +121,15 @@ describe Mongoid::Attributes do
           expect {
             from_db.title
           }.to raise_error(ActiveModel::MissingAttributeError)
+        end
+
+        context "accessing via []" do
+
+          it "raises an error" do
+            expect {
+              from_db["title"]
+            }.to raise_error(ActiveModel::MissingAttributeError)
+          end
         end
       end
 
@@ -172,7 +236,7 @@ describe Mongoid::Attributes do
         before do
           person.collection
             .find({ _id: person.id })
-            .update({ "$unset" => { age: 1 }})
+            .update_one({ "$unset" => { age: 1 }})
         end
 
         context "when found" do
@@ -742,7 +806,7 @@ describe Mongoid::Attributes do
         before do
           person.collection
             .find({ _id: person.id })
-            .update({ "$unset" => { age: 1 }})
+            .update_one({ "$unset" => { age: 1 }})
           Mongoid.raise_not_found_error = false
           person.reload
           Mongoid.raise_not_found_error = true
@@ -829,7 +893,7 @@ describe Mongoid::Attributes do
         before do
           person.collection
             .find({ _id: person.id })
-            .update({ "$unset" => { age: 1 }})
+            .update_one({ "$unset" => { age: 1 }})
           Mongoid.raise_not_found_error = false
           person.reload
           Mongoid.raise_not_found_error = true
@@ -1207,6 +1271,19 @@ describe Mongoid::Attributes do
         }.to raise_error(Mongoid::Errors::InvalidValue)
       end
     end
+
+    context "when attribute is localized and #attributes is a BSON::Document" do
+      let(:dictionary) { Dictionary.new }
+
+      before do
+        allow(dictionary).to receive(:attributes).and_return(BSON::Document.new)
+      end
+
+      it "sets the value for the current locale" do
+        dictionary.write_attribute(:description, 'foo')
+        expect(dictionary.description).to eq('foo')
+      end
+    end
   end
 
   describe "#typed_value_for" do
@@ -1465,7 +1542,7 @@ describe Mongoid::Attributes do
         expect(product.cost).to eq(500)
       end
 
-      it "aliases the existance check" do
+      it "aliases the existence check" do
         expect(product.cost?).to be true
       end
 
@@ -1506,7 +1583,7 @@ describe Mongoid::Attributes do
         expect(product.price).to eq(500)
       end
 
-      it "aliases the existance check" do
+      it "aliases the existence check" do
         expect(product.price?).to be true
       end
 
@@ -1614,6 +1691,58 @@ describe Mongoid::Attributes do
         it "applies the defaults after all attributes are set" do
           expect(from_db).to be_balanced
         end
+      end
+    end
+  end
+
+  context 'when calling the attribute check method' do
+
+    context 'when the attribute is blank' do
+      let(:person) do
+        Person.create(title: '')
+      end
+
+      it 'returns false' do
+        expect(person.title?).to be(false)
+      end
+    end
+
+    context 'when the attribute is localized' do
+      let(:person) do
+        Person.create(desc: 'localized')
+      end
+
+      before do
+        person.desc = nil
+      end
+
+      it 'applies the localization when checking the attribute' do
+        expect(person.desc?).to be(false)
+      end
+
+      context 'when the field is a boolean' do
+
+        before do
+          person.desc = false
+        end
+
+        it 'applies the localization when checking the attribute' do
+          expect(person.desc?).to be(false)
+        end
+      end
+    end
+
+    context 'when the attribute is not localized' do
+      let(:person) do
+        Person.create(username: 'localized')
+      end
+
+      before do
+        person.username = nil
+      end
+
+      it 'does not apply localization when checking the attribute' do
+        expect(person.username?).to be(false)
       end
     end
   end
