@@ -895,7 +895,9 @@ describe Mongoid::Clients do
 
     context "when the override is global" do
 
-      shared_examples_for "a global database override" do
+      before do
+        Mongoid.override_database(:mongoid_optional)
+      end
 
       after do
         Band.delete_all
@@ -903,36 +905,18 @@ describe Mongoid::Clients do
         Mongoid.override_database(nil)
       end
 
-        after do
-          Band.delete_all
-          Mongoid.override_database(nil)
-        end
+      let!(:band) do
+        Band.create(name: "Tool")
+      end
 
-        let!(:band) do
-          klass.create(name: "Tool")
-        end
-
-        it "persists to the overridden database" do
-          mongo_client = Band.mongo_client.with(database: :mongoid_optional)
-          expect(mongo_client[:bands].count(name: "Tool")).to eq(1)
-        end
-
-        it 'uses that database for the model mongo_client' do
-          expect(Band.mongo_client.database.name).to eq('mongoid_optional')
+      it "persists to the overridden database" do
+        Band.mongo_client.with(database: :mongoid_optional) do |sess|
+          expect(sess[:bands].find(name: "Tool")).to_not be_nil
         end
       end
 
-      context "when normal usage" do
-        let(:klass) { Band }
-
-        it_behaves_like "a global database override"
-      end
-
-      context "when overriding the persistence options" do
-
-        let(:klass) { Band.with(connect_timeout: 10) }
-
-        it_behaves_like "a global database override"
+      it 'uses that database for the model mongo_client' do
+        expect(Band.mongo_client.database.name).to eq('mongoid_optional')
       end
     end
   end
