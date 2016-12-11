@@ -10,6 +10,24 @@ module Mongoid
         delegate :count, to: :criteria
         delegate :first, :in_memory, :last, :reset, :uniq, to: :target
 
+        # The allowed options when defining this relation.
+        #
+        # @return [ Array<Symbol> ] The allowed options when defining this relation.
+        #
+        # @since 6.0.0
+        VALID_OPTIONS = [
+          :after_add,
+          :after_remove,
+          :as,
+          :autosave,
+          :before_add,
+          :before_remove,
+          :dependent,
+          :foreign_key,
+          :order,
+          :primary_key
+        ].freeze
+
         # Appends a document or array of documents to the relation. Will set
         # the parent and update the index in the process.
         #
@@ -320,7 +338,6 @@ module Mongoid
         #
         # @since 2.0.0.rc.1
         def append(document)
-          document.with(@persistence_options) if @persistence_options
           with_add_callbacks(document, already_related?(document)) do
             target.push(document)
             characterize_one(document)
@@ -731,18 +748,7 @@ module Mongoid
           #
           # @since 2.1.0
           def valid_options
-            [
-              :after_add,
-              :after_remove,
-              :as,
-              :autosave,
-              :before_add,
-              :before_remove,
-              :dependent,
-              :foreign_key,
-              :order,
-              :primary_key
-            ]
+            VALID_OPTIONS
           end
 
           # Get the default validation setting for the relation. Determines if

@@ -1105,6 +1105,69 @@ describe Mongoid::Attributes do
         expect(person.delayed_atomic_unsets).to be_empty
       end
     end
+
+    context "when the attribute is aliased" do
+
+      context 'when the database name is used' do
+
+        let(:person) do
+          Person.create(at: Time.now)
+        end
+
+        before do
+          person.remove_attribute(:at)
+        end
+
+        it "removes the attribute" do
+          expect(person.at).to be_nil
+        end
+
+        it "removes the key from the attributes hash" do
+          expect(person.has_attribute?(:at)).to be false
+        end
+
+        context "when saving after the removal" do
+
+          before do
+            person.save
+          end
+
+          it "persists the removal" do
+            expect(person.reload.has_attribute?(:at)).to be false
+          end
+        end
+      end
+
+      context 'when the alias is used' do
+
+        let(:person) do
+          Person.create(aliased_timestamp: Time.now)
+        end
+
+        before do
+          person.remove_attribute(:aliased_timestamp)
+        end
+
+        it "removes the attribute" do
+          expect(person.aliased_timestamp).to be_nil
+        end
+
+        it "removes the key from the attributes hash" do
+          expect(person.has_attribute?(:aliased_timestamp)).to be false
+        end
+
+        context "when saving after the removal" do
+
+          before do
+            person.save
+          end
+
+          it "persists the removal" do
+            expect(person.reload.has_attribute?(:aliased_timestamp)).to be false
+          end
+        end
+      end
+    end
   end
 
   describe "#respond_to?" do
@@ -1709,15 +1772,22 @@ describe Mongoid::Attributes do
 
     context 'when the attribute is localized' do
       let(:person) do
-        Person.create(desc: 'localized')
+        Person.create
       end
 
-      before do
-        person.desc = nil
+      context 'after initialization when the field is nil' do
+
+        it 'returns false' do
+          expect(person.desc?).to be(false)
+        end
       end
 
-      it 'applies the localization when checking the attribute' do
-        expect(person.desc?).to be(false)
+      context 'when setting the field to nil' do
+
+        it 'applies the localization when checking the attribute' do
+          person.desc = nil
+          expect(person.desc?).to be(false)
+        end
       end
 
       context 'when the field is a boolean' do

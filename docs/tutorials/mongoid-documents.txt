@@ -1,4 +1,4 @@
-.. _mongoid-documents-5.1.0:
+.. _mongoid-documents-6.0.0:
 
 =========
 Documents

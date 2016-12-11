@@ -4,7 +4,9 @@ require "mongoid/criteria/includable"
 require "mongoid/criteria/inspectable"
 require "mongoid/criteria/marshalable"
 require "mongoid/criteria/modifiable"
+require "mongoid/criteria/queryable"
 require "mongoid/criteria/scopable"
+require "mongoid/criteria/options"
 
 module Mongoid
 
@@ -17,7 +19,7 @@ module Mongoid
   class Criteria
     include Enumerable
     include Contextual
-    include Origin::Queryable
+    include Queryable
     include Findable
     include Inspectable
     include Includable
@@ -25,6 +27,7 @@ module Mongoid
     include Modifiable
     include Scopable
     include Clients::Options
+    include Options
 
     # Static array used to check with method missing - we only need to ever
     # instantiate once.

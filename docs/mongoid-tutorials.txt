@@ -1,10 +1,18 @@
 ===============
-Mongoid (5.1.0)
+Mongoid (6.0.0)
 ===============
 
 .. default-domain:: mongodb
 
-The Mongoid (5.1.0) documentation has the following tutorials:
+The Mongoid documentation has the following tutorials:
+
+.. COMMENT Consider moving the toc landing pages to docs-ruby instead.
+.. Pros: 
+      Avoid the somewhat unwieldy toc structure below which requires regexing of "version" during the build process.
+      Easier to maintain and update structure of the docs
+   Cons:
+      Odd that one or two pages (albeit only toc pages) wouldn't be together.
+      If we add new page, the toc tree page is in the repo with the new page.
 
 .. toctree::
    :titlesonly:
