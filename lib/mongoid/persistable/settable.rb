@@ -27,7 +27,7 @@ module Mongoid
             field = field_and_value_hash.keys.first.to_s
 
             if fields[field] && fields[field].type == Hash && attributes.key?(field)
-              process_attribute(field.to_s, attributes[field].merge(field_and_value_hash[field]))
+              process_attribute(field.to_s, (attributes[field]||{}).merge(field_and_value_hash[field]))
             else
               process_attribute(field.to_s, field_and_value_hash[field])
             end
