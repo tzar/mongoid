@@ -71,7 +71,7 @@ module Mongoid
                         end
                       end
                     else
-                      Array(relation).each do |doc|
+                      relation.in_memory.each do |doc|
                         if changed_for_autosave?(doc)
                           doc.with(persistence_context) do |d|
                             d.save
