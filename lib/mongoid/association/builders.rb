@@ -74,7 +74,7 @@ module Mongoid
       # @since 2.0.0.rc.1
       def self.define_creator!(association)
         association.inverse_class.tap do |klass|
-          klass.re_define_method("create_#{association.name}") do |attributes = {}, type = association.relation_class.klass|
+          klass.re_define_method("create_#{association.name}") do |attributes = {}, type = association.relation_class|
             document = Factory.build(type, attributes)
             doc = _assigning do
               send("#{association.name}=", document)
