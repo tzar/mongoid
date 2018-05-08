@@ -31,28 +31,14 @@ describe Mongoid::QueryCache do
         :posts
       end
 
-      context 'when query cache is disabled' do
+      context 'does not query for the relation and instead sets the base' do
 
         before do
           Mongoid::QueryCache.enabled = false
         end
 
         it 'queries for each access to the base' do
-          expect(server).to receive(:with_connection).exactly(relations.size).times.and_call_original
-          relations.each do |object|
-            object.person
-          end
-        end
-      end
-
-      context 'when query cache is enabled' do
-
-        before do
-          Mongoid::QueryCache.enabled = true
-        end
-
-        it 'queries only once for the base' do
-          expect(server).to receive(:with_connection).exactly(1).times.and_call_original
+          expect(server).to receive(:with_connection).exactly(0).times.and_call_original
           relations.each do |object|
             object.person
           end
@@ -161,6 +147,40 @@ describe Mongoid::QueryCache do
       it "does not query again" do
         expect_no_queries do
           Band.all.to_a
+        end
+      end
+
+      context 'when the first query has a collation', if: collation_supported? do
+
+        before do
+          Band.where(name: 'DEPECHE MODE').collation(locale: 'en_US', strength: 2).to_a
+        end
+
+        context "when the next query has the same collation" do
+
+          it "uses the cache" do
+            expect_no_queries do
+              Band.where(name: 'DEPECHE MODE').collation(locale: 'en_US', strength: 2).to_a
+            end
+          end
+        end
+
+        context "when the next query does not have the same collation" do
+
+          it "queries again" do
+            expect_query(1) do
+              Band.where(name: 'DEPECHE MODE').collation(locale: 'fr', strength: 2).to_a
+            end
+          end
+        end
+
+        context "when the next query does not have a collation" do
+
+          it "queries again" do
+            expect_query(1) do
+              Band.where(name: 'DEPECHE MODE').to_a
+            end
+          end
         end
       end
 

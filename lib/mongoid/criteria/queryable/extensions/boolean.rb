@@ -14,14 +14,14 @@ module Mongoid
             # @example Evolve the value to a boolean.
             #   Boolean.evolve(true)
             #
-            # @param [ Object ] The object to evolve.
+            # @param [ Object ] object The object to evolve.
             #
             # @return [ true, false ] The boolean value.
             #
             # @since 1.0.0
             def evolve(object)
               __evolve__(object) do |obj|
-                obj.to_s =~ (/(true|t|yes|y|1|1.0)$/i) ? true : false
+                obj.to_s =~ (/\A(true|t|yes|y|on|1|1.0)\z/i) ? true : false
               end
             end
           end

@@ -1,13 +1,13 @@
 # encoding: utf-8
 require "mongoid/contextual/aggregable/memory"
-require "mongoid/relations/eager"
+require "mongoid/association/eager_loadable"
 
 module Mongoid
   module Contextual
     class Memory
       include Enumerable
       include Aggregable::Memory
-      include Relations::Eager
+      include Association::EagerLoadable
       include Queryable
       include Positional
 
@@ -44,11 +44,12 @@ module Mongoid
         deleted = count
         removed = map do |doc|
           prepare_remove(doc)
-          doc.as_document
+          doc.send(:as_attributes)
         end
         unless removed.empty?
           collection.find(selector).update_one(
-            positionally(selector, "$pullAll" => { path => removed })
+            positionally(selector, "$pullAll" => { path => removed }),
+            session: session
           )
         end
         deleted
@@ -129,7 +130,7 @@ module Mongoid
       # @return [ Document ] The first document.
       #
       # @since 3.0.0
-      def first
+      def first(*args)
         eager_load([documents.first]).first
       end
       alias :one :first
@@ -140,7 +141,7 @@ module Mongoid
       # @example Create the new context.
       #   Memory.new(criteria)
       #
-      # @param [ Criteria ] The criteria.
+      # @param [ Criteria ] criteria The criteria.
       #
       # @since 3.0.0
       def initialize(criteria)
@@ -148,10 +149,26 @@ module Mongoid
         @documents = criteria.documents.select do |doc|
           @root ||= doc._root
           @collection ||= root.collection
-          doc.matches?(criteria.selector)
+          doc._matches?(criteria.selector)
         end
         apply_sorting
         apply_options
+      end
+
+      # Increment a value on all documents.
+      #
+      # @example Perform the increment.
+      #   context.inc(likes: 10)
+      #
+      # @param [ Hash ] incs The operations.
+      #
+      # @return [ Enumerator ] The enumerator.
+      #
+      # @since 7.0.0
+      def inc(*args)
+        each do |document|
+          document.inc *args
+        end
       end
 
       # Get the last document in the database for the criteria's selector.
@@ -303,7 +320,7 @@ module Mongoid
           updates["$set"].merge!(doc.atomic_updates["$set"] || {})
           doc.move_changes
         end
-        collection.find(selector).update_one(updates) unless updates["$set"].empty?
+        collection.find(selector).update_one(updates, session: session) unless updates["$set"].empty?
       end
 
       # Get the limiting value.
@@ -373,6 +390,7 @@ module Mongoid
       #
       # @since 3.0.0
       def apply_options
+        raise Errors::InMemoryCollationNotSupported.new if criteria.options[:collation]
         skip(criteria.options[:skip]).limit(criteria.options[:limit])
       end
 
@@ -442,6 +460,12 @@ module Mongoid
         documents.delete_one(doc)
         doc._parent.remove_child(doc)
         doc.destroyed = true
+      end
+
+      private
+
+      def session
+        @criteria.send(:session)
       end
     end
   end

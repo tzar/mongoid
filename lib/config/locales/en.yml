@@ -76,6 +76,12 @@ en:
           resolution: "For access to the collection that the embedded document is
             in, use %{klass}#_root.collection, or do not attempt to persist an
             embedded document without a parent set."
+        in_memory_collation_not_supported:
+          message: "A collation option cannot be applied when querying documents in-memory."
+          summary: "The query being run against documents in memory has a collation option set.
+            A collation option is only supported if the query is executed on a MongoDB server
+            with version >= 3.4."
+          resolution: "Remove the collation option from the query."
         invalid_config_option:
           message: "Invalid configuration option: %{name}."
           summary: "A invalid configuration option was provided in your
@@ -85,6 +91,11 @@ en:
             expecting the option to be there, please consult the following page
             with repect to Mongoid's configuration:\n\n
             \_\_http://mongoid.org/en/mongoid/docs/installation.html"
+        invalid_dependent_strategy:
+          message: "Invalid dependent strategy: %{invalid_strategy}."
+          summary: "An invalid dependent strategy was defined for the association:
+            %{association}. The valid strategies are: %{valid_strategies}."
+          resolution: "Change the dependent strategy to one of the valid types."
         invalid_field:
           message: "Defining a field named '%{name}' is not allowed."
           summary: "Defining this field would override the method '%{name}',
@@ -134,9 +145,18 @@ en:
             \_\_min: 1\n
             \_\_max: 1\n
             \_\_bits: 26\n
+            \_\_key: 26\n
             \_\_bucket_size : 1\n
+            \_\_sphere_version : 1\n
+            \_\_text_version : 1\n
+            \_\_version : 1\n
             \_\_weights: { content: 1, title: 2 }\n
             \_\_expire_after_seconds: number_of_seconds\n
+            \_\_partial_filter_expression\n
+            \_\_storage_engine\n
+            \_\_language_override\n
+            \_\_default_language\n
+            \_\_collation\n
             Valid types are: 1, -1, '2d', '2dsphere', 'geoHaystack', 'text', 'hashed'\n\n
             Example:\n
             \_\_class Band\n
@@ -181,6 +201,11 @@ en:
             allowed, and don't use these names. These include names that also
             conflict with core Ruby methods on Object, Module, Enumerable, or
             included gems that inject methods into these or Mongoid internals."
+        invalid_relation_option:
+          message: "Invalid relation option :%{option} for relation '%{name}' on class
+            %{klass}."
+          summary: "An invalid option was provided for a relation."
+          resolution: "Valid options are: %{valid_options}, make sure you use only those."
         invalid_scope:
           message: "Defining a scope of value %{value} on %{klass} is not
             allowed."
@@ -191,6 +216,20 @@ en:
             \_\_\_\_include Mongoid::Document\n
             \_\_\_\_scope :inactive, ->{ where(active: false) }\n
             \_\_end\n\n"
+        invalid_session_use:
+          message: "A session was attempted to be used with a model whose client cannot use
+            that session."
+          summary: "Sessions are started via driver clients (Model#mongo_client) and, in most cases, driver
+            clients are shared across models. When different models have their own clients, a session cannot
+            be obtained via one model and used for operations on another model."
+          resolution: "Only execute operations on the model class or instances of the model through which
+            the session was created. Otherwise, ensure that all models on which operations are executed
+            in the session block share the same driver client. For example, a model may have a different
+            client specified in its 'store_in' options.\n\n"
+        invalid_session_nesting:
+          message: "A session was started while another session was being used."
+          summary: "Sessions cannot be nested. Only one session can be used in a thread at once."
+          resolution: "Only use one session at a time; sessions cannot be nested."
         invalid_storage_options:
           message: "Invalid options passed to %{klass}.store_in: %{options}."
           summary: "The :store_in macro takes only a hash of parameters with
@@ -437,6 +476,13 @@ en:
             with the already defined method %{model_name}, or set the
             configuration option Mongoid.scope_overwrite_exception to false,
             which is its default. In this case a warning will be logged."
+        sessions_not_supported:
+          message: "Sessions are not supported by the connected server(s)."
+          summary: "A session was attempted to be used with a MongoDB server version
+            that doesn't support sessions. Sessions are supported in MongoDB
+            server versions 3.6 and higher."
+          resolution: "Verify that all servers in your deployment are at least
+            version 3.6 or don't attempt to use sessions with older server versions."
         taken:
           "is already taken"
         too_many_nested_attribute_records:
@@ -458,6 +504,13 @@ en:
             attributes hash, and is raised instead of getting a NoMethodError."
           resolution: "You can include Mongoid::Attributes::Dynamic if you
             expect to be writing values for undefined fields often."
+        unknown_model:
+          message: "Attempted to instantiate an object of the unknown Model '%{klass}'."
+          summary: "A document with the value '%{value}' at the key '_type' was used to
+            instantiate a model object but Mongoid cannot find this Class."
+          resolution: "The _type field is a reserved one used by Mongoid to determine the
+            class for instantiating an object. Please don't save data in this field or ensure
+            that any values in this field correspond to valid Models."
         unsaved_document:
           message: "Attempted to save %{document} before the parent %{base}."
           summary: "You cannot call create or create! through the

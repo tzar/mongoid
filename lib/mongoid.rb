@@ -36,8 +36,13 @@ module Mongoid
   extend Loggable
   extend self
 
+  # A string added to the platform details of Ruby driver client handshake documents.
+  #
+  # @since 6.1.0
+  PLATFORM_DETAILS = "mongoid-#{VERSION}".freeze
+
   # The minimum MongoDB version supported.
-  MONGODB_VERSION = "2.4.0"
+  MONGODB_VERSION = "2.6.0"
 
   # Sets the Mongoid configuration options. Best used by passing a block.
   #

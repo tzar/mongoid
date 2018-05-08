@@ -112,6 +112,24 @@ describe Mongoid::Persistable::Updatable do
       end
     end
 
+    context "when dynamic attributes are not enabled" do
+
+      it "raises exception for an unknown attribute " do
+        account = Account.create
+
+        expect {
+          account.update_attribute(:somethingnew, "somethingnew")
+        }.to raise_error(Mongoid::Errors::UnknownAttribute)
+      end
+
+      it "will update value of aliased field" do
+        person = Person.create
+        person.update_attribute(:t, "test_value")
+        expect(person.reload.t).to eq "test_value"
+        expect(person.test).to eq "test_value"
+      end
+    end
+
     context "when provided a symbol attribute name" do
 
       let(:post) do
@@ -444,7 +462,7 @@ describe Mongoid::Persistable::Updatable do
 
         it "raises an error" do
           expect {
-            person.update_attributes(map: { "bad.key" => "value" })
+            person.update_attributes(map: { "$bad.key" => "value" })
           }.to raise_error(Mongo::Error::OperationFailure)
         end
       end
@@ -480,7 +498,7 @@ describe Mongoid::Persistable::Updatable do
 
         it "raises an error" do
           expect {
-            person.send(method, map: { "bad.key" => "value" })
+            person.send(method, map: { "$bad.key" => "value" })
           }.to raise_error(Mongo::Error::OperationFailure)
         end
       end

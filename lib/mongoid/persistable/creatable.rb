@@ -42,7 +42,7 @@ module Mongoid
       #
       # @since 2.1.0
       def atomic_inserts
-        { atomic_insert_modifier => { atomic_position => as_document }}
+        { atomic_insert_modifier => { atomic_position => as_attributes }}
       end
 
       # Insert the embedded document.
@@ -61,7 +61,9 @@ module Mongoid
           _parent.insert
         else
           selector = _parent.atomic_selector
-          _root.collection.find(selector).update_one(positionally(selector, atomic_inserts))
+          _root.collection.find(selector).update_one(
+              positionally(selector, atomic_inserts),
+              session: session)
         end
       end
 
@@ -76,7 +78,7 @@ module Mongoid
       #
       # @since 4.0.0
       def insert_as_root
-        collection.insert_one(as_document)
+        collection.insert_one(as_attributes, session: session)
       end
 
       # Post process an insert, which sets the new record attribute to false
@@ -165,8 +167,6 @@ module Mongoid
         #
         # @param [ Hash, Array ] attributes The attributes to create with, or an
         #   Array of multiple attributes for multiple documents.
-        # @param [ Hash ] options A mass-assignment protection options. Supports
-        #   :as and :without_protection
         #
         # @return [ Document, Array<Document> ] The newly created document(s).
         #

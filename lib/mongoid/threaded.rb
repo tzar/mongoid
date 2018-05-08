@@ -64,7 +64,7 @@ module Mongoid
     # @example Set the global database override.
     #   Threaded.database_override = :testing
     #
-    # @param [ String, Symbol ] The global override name.
+    # @param [ String, Symbol ] name The global override name.
     #
     # @return [ String, Symbol ] The override.
     #
@@ -180,7 +180,7 @@ module Mongoid
     # @example Set the global client override.
     #   Threaded.client_override = :testing
     #
-    # @param [ String, Symbol ] The global override name.
+    # @param [ String, Symbol ] name The global override name.
     #
     # @return [ String, Symbol ] The override.
     #
@@ -304,7 +304,7 @@ module Mongoid
     # @example Get all autosaves.
     #   Threaded.autosaves_for(Person)
     #
-    # @param [ Class ] The class to check.
+    # @param [ Class ] klass The class to check.
     #
     # @return [ Array ] The current autosaves.
     #
@@ -317,13 +317,51 @@ module Mongoid
     # @example Get all validations.
     #   Threaded.validations_for(Person)
     #
-    # @param [ Class ] The class to check.
+    # @param [ Class ] klass The class to check.
     #
     # @return [ Array ] The current validations.
     #
     # @since 2.1.9
     def validations_for(klass)
       validations[klass] ||= []
+    end
+
+    # Cache a session for this thread.
+    #
+    # @example Save a session for this thread.
+    #   Threaded.set_session(session)
+    #
+    # @param [ Mongo::Session ] session The session to save.
+    #
+    # @since 6.4.0
+    def set_session(session)
+      Thread.current[:session] = session
+    end
+
+    # Get the cached session for this thread.
+    #
+    # @example Get the session for this thread.
+    #   Threaded.get_session
+    #
+    # @return [ Mongo::Session, nil ] The session cached on this thread or nil.
+    #
+    # @since 6.4.0
+    def get_session
+      Thread.current[:session]
+    end
+
+    # Clear the cached session for this thread.
+    #
+    # @example Clear this thread's session.
+    #   Threaded.clear_session
+    #
+    # @return [ nil ]
+    #
+    # @since 6.4.0
+    def clear_session
+      session = get_session
+      session.end_session if session
+      Thread.current[:session] = nil
     end
   end
 end

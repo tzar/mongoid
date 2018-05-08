@@ -88,6 +88,30 @@ describe Mongoid::Config do
     end
   end
 
+  context 'when background_indexing option' do
+    context 'is not set in the config' do
+      it 'sets the value to false by default' do
+        Mongoid::Config.reset
+        configuration = CONFIG.merge(options: {})
+
+        Mongoid.configure { |config| config.load_configuration(configuration) }
+
+        expect(Mongoid::Config.background_indexing).to be(false)
+      end
+    end
+
+    context 'is set in the config' do
+      it 'sets the value' do
+        Mongoid::Config.reset
+        configuration = CONFIG.merge(options: {background_indexing: true})
+
+        Mongoid.configure { |config| config.load_configuration(configuration) }
+
+        expect(Mongoid::Config.background_indexing).to be(true)
+      end
+    end
+  end
+
   context 'when the belongs_to_required_by_default option is not set in the config' do
 
     before do
@@ -128,6 +152,7 @@ describe Mongoid::Config do
       end
 
       before do
+        Mongoid::Config.reset
         Mongoid.configure do |config|
           config.load_configuration(conf)
         end
@@ -136,6 +161,37 @@ describe Mongoid::Config do
       it 'sets the Mongoid.belongs_to_required_by_default value to false' do
         expect(Mongoid.belongs_to_required_by_default).to be(false)
       end
+    end
+  end
+
+  context 'when the app_name is set in the config' do
+
+    let(:conf) do
+      CONFIG.merge(options: { app_name: 'admin-reporting' })
+    end
+
+    before do
+      Mongoid.configure do |config|
+        config.load_configuration(conf)
+      end
+    end
+
+    it 'sets the Mongoid.app_name to the provided value' do
+      expect(Mongoid.app_name).to eq('admin-reporting')
+    end
+  end
+
+  context 'when the app_name is not set in the config' do
+
+    before do
+      Mongoid::Config.reset
+      Mongoid.configure do |config|
+        config.load_configuration(CONFIG)
+      end
+    end
+
+    it 'does not set the Mongoid.app_name option' do
+      expect(Mongoid.app_name).to be_nil
     end
   end
 
@@ -306,7 +362,7 @@ describe Mongoid::Config do
         context "when a default is provided" do
 
           before do
-            described_class.load!(file)
+            described_class.load!(file, :test_with_max_staleness)
           end
 
           let(:default) do
@@ -325,7 +381,7 @@ describe Mongoid::Config do
 
             it "sets the read option" do
               expect(options["read"]).to eq({ "mode" => :primary_preferred,
-                                              "tag_sets" => [{ "use" => "web" }]})
+                                              "max_staleness" => 100 })
             end
           end
         end

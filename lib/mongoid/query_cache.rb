@@ -222,9 +222,11 @@ module Mongoid
           super
         else
           unless cursor = cached_cursor
-            server = read.select_server(cluster)
-            cursor = CachedCursor.new(view, send_initial_query(server), server)
-            QueryCache.cache_table[cache_key] = cursor
+            read_with_retry do
+              server = server_selector.select_server(cluster)
+              cursor = CachedCursor.new(view, send_initial_query(server), server)
+              QueryCache.cache_table[cache_key] = cursor
+            end
           end
           cursor.each do |doc|
             yield doc
@@ -237,7 +239,7 @@ module Mongoid
 
       def cached_cursor
         if limit
-          key = [ collection.namespace, selector, nil, skip, sort, projection ]
+          key = [ collection.namespace, selector, nil, skip, sort, projection, collation  ]
           cursor = QueryCache.cache_table[key]
           if cursor
             limited_docs = cursor.to_a[0...limit.abs]
@@ -248,7 +250,7 @@ module Mongoid
       end
 
       def cache_key
-        [ collection.namespace, selector, limit, skip, sort, projection ]
+        [ collection.namespace, selector, limit, skip, sort, projection, collation ]
       end
 
       def system_collection?

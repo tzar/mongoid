@@ -27,6 +27,7 @@ module Mongoid
     include Modifiable
     include Scopable
     include Clients::Options
+    include Clients::Sessions
     include Options
 
     # Static array used to check with method missing - we only need to ever
@@ -35,7 +36,7 @@ module Mongoid
     # @since 4.0.0
     CHECK = []
 
-    attr_accessor :embedded, :klass, :parent_document, :metadata
+    attr_accessor :embedded, :klass, :parent_document, :association
 
     # Returns true if the supplied +Enumerable+ or +Criteria+ is equal to the results
     # of this +Criteria+ or the criteria itself.
@@ -196,6 +197,8 @@ module Mongoid
     # @since 1.0.0
     def initialize(klass)
       @klass = klass
+      @embedded = nil
+      @none = nil
       klass ? super(klass.aliased_fields, klass.fields) : super({}, {})
     end
 
@@ -209,7 +212,7 @@ module Mongoid
     #
     # @example Merge the criteria with a hash. The hash must contain a klass
     #   key and the key/value pairs correspond to method names/args.
-
+    #
     #   criteria.merge({
     #     klass: Band,
     #     where: { name: "Depeche Mode" },
@@ -387,7 +390,7 @@ module Mongoid
     # @example Add a javascript selection.
     #   criteria.where("this.name == 'syd'")
     #
-    # @param [ String, Hash ] criterion The javascript or standard selection.
+    # @param [ String, Hash ] expression The javascript or standard selection.
     #
     # @raise [ UnsupportedJavascript ] If provided a string and the criteria
     #   is embedded.

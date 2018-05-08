@@ -70,6 +70,20 @@ describe Mongoid::PersistenceContext do
       { collection: :other }
     end
 
+    context 'when the method throws an error' do
+
+      let!(:persistence_context) do
+        described_class.set(object, options).tap do |cxt|
+          allow(cxt).to receive(:client).and_raise(Mongoid::Errors::NoClientConfig.new('default'))
+        end
+      end
+
+      it 'clears the context anyway' do
+        begin; described_class.clear(object); rescue; end
+        expect(described_class.get(object)).to be(nil)
+      end
+    end
+
     context 'when there has been a persistence context set on the current thread' do
 
       let!(:persistence_context) do
@@ -211,7 +225,28 @@ describe Mongoid::PersistenceContext do
       end
 
       it 'keeps the other options of the persistence context' do
-        expect(persistence_context.collection(Person.new).client.options[:read]).to eq(options[:read])
+        expect(persistence_context.collection(Person.new).options[:read]).to eq(options[:read])
+      end
+
+      context 'when the parent object has a client set' do
+
+        let(:file) do
+          File.join(File.dirname(__FILE__), "..", "config", "mongoid.yml")
+        end
+
+        before do
+          Mongoid::Clients.clear
+          Mongoid.load!(file, :test)
+          Person.store_in(client: 'reports')
+        end
+
+        after do
+          Person.reset_storage_options!
+        end
+
+        it 'uses the client of the parent object' do
+          expect(persistence_context.collection(Person.new).client.database.name).to eq('reports')
+        end
       end
     end
 

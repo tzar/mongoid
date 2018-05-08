@@ -21,10 +21,12 @@ module Mongoid
       def delete(options = {})
         raise Errors::ReadonlyDocument.new(self.class) if readonly?
         prepare_delete do
-          if embedded?
-            delete_as_embedded(options)
-          else
-            delete_as_root
+          unless options[:persist] == false
+            if embedded?
+              delete_as_embedded(options)
+            else
+              delete_as_root
+            end
           end
         end
       end
@@ -62,7 +64,9 @@ module Mongoid
         _parent.remove_child(self) if notifying_parent?(options)
         if _parent.persisted?
           selector = _parent.atomic_selector
-          _root.collection.find(selector).update_one(positionally(selector, atomic_deletes))
+          _root.collection.find(selector).update_one(
+              positionally(selector, atomic_deletes),
+              session: session)
         end
         true
       end
@@ -78,7 +82,7 @@ module Mongoid
       #
       # @since 4.0.0
       def delete_as_root
-        collection.find(atomic_selector).delete_one
+        collection.find(atomic_selector).delete_one(session: session)
         true
       end
 
@@ -111,11 +115,10 @@ module Mongoid
       #
       # @since 4.0.0
       def prepare_delete
-        cascade!
+        return false unless catch(:abort) { apply_delete_dependencies! }
         yield(self)
         freeze
         self.destroyed = true
-        true
       end
 
       module ClassMethods
@@ -135,13 +138,9 @@ module Mongoid
         # @return [ Integer ] The number of documents deleted.
         #
         # @since 1.0.0
-        def delete_all(conditions = nil)
-          selector = conditions || {}
-          selector.merge!(_type: name) if hereditary?
-          coll = collection
-          deleted = coll.find(selector).count
-          coll.find(selector).delete_many
-          deleted
+        def delete_all(conditions = {})
+          selector = hereditary? ? conditions.merge(_type: name) : conditions
+          where(selector).delete
         end
       end
     end

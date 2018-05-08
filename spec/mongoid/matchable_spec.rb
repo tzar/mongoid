@@ -2,19 +2,20 @@ require "spec_helper"
 
 describe Mongoid::Matchable do
 
-  describe "#matches?" do
+  describe "#_matches?" do
 
     context "when document is embeded" do
 
       let(:document) do
         Address.new(street: "Clarkenwell Road")
       end
+      let(:occupants){[{'name' => 'Tim'}]}
 
       before do
         document.locations << Location.new(
           name: 'No.1',
           info: { 'door' => 'Red'},
-          occupants: [{'name' => 'Tim'}]
+          occupants: occupants
         )
       end
 
@@ -25,7 +26,7 @@ describe Mongoid::Matchable do
         end
 
         it "returns false" do
-          expect(document.locations.first.matches?(selector)).to be false
+          expect(document.locations.first._matches?(selector)).to be false
         end
 
         context "when just change the selector order" do
@@ -35,7 +36,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false " do
-            expect(document.locations.first.matches?(selector)).to be false
+            expect(document.locations.first._matches?(selector)).to be false
           end
         end
       end
@@ -49,7 +50,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.locations.first.matches?(selector)).to be true
+            expect(document.locations.first._matches?(selector)).to be true
           end
         end
 
@@ -60,7 +61,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.locations.first.matches?(selector)).to be false
+            expect(document.locations.first._matches?(selector)).to be false
           end
         end
 
@@ -71,7 +72,34 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.locations.first.matches?(selector)).to be false
+            expect(document.locations.first._matches?(selector)).to be false
+          end
+        end
+      end
+
+      context "when matching index of an array" do
+
+        let(:occupants){["Tim","Logan"]}
+
+        context "when the contents match" do
+
+          let(:selector) do
+            { "occupants.0" => "Tim" }
+          end
+          
+          it "returns true" do
+            expect(document.locations.first._matches?(selector)).to be true
+          end
+        end
+
+        context "when the contents do not match" do
+
+          let(:selector) do
+            { "occupants.0" => "Logan" }
+          end
+
+          it "returns false" do
+            expect(document.locations.first._matches?(selector)).to be false
           end
         end
       end
@@ -85,7 +113,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.locations.first.matches?(selector)).to be true
+            expect(document.locations.first._matches?(selector)).to be true
           end
         end
 
@@ -96,7 +124,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.locations.first.matches?(selector)).to be false
+            expect(document.locations.first._matches?(selector)).to be false
           end
         end
 
@@ -107,7 +135,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.locations.first.matches?(selector)).to be false
+            expect(document.locations.first._matches?(selector)).to be false
           end
         end
       end
@@ -125,7 +153,7 @@ describe Mongoid::Matchable do
           context "and there is a matching sub document" do
 
             it "returns true" do
-              expect(document.locations.first.matches?(selector)).to be true
+              expect(document.locations.first._matches?(selector)).to be true
             end
 
             context "using $in" do
@@ -136,7 +164,7 @@ describe Mongoid::Matchable do
               end
 
               it "returns true" do
-                expect(document.locations.first.matches?(selector)).to be true
+                expect(document.locations.first._matches?(selector)).to be true
               end
             end
           end
@@ -150,7 +178,7 @@ describe Mongoid::Matchable do
             end
 
             it "returns false" do
-              expect(document.locations.first.matches?(selector)).to be false
+              expect(document.locations.first._matches?(selector)).to be false
             end
 
             context "using $in" do
@@ -161,7 +189,7 @@ describe Mongoid::Matchable do
               end
 
               it "returns false" do
-                expect(document.locations.first.matches?(selector)).to be false
+                expect(document.locations.first._matches?(selector)).to be false
               end
             end
           end
@@ -188,7 +216,7 @@ describe Mongoid::Matchable do
           context "and there is a matching sub document" do
 
             it "returns true" do
-              expect(document.locations.first.matches?(selector)).to be true
+              expect(document.locations.first._matches?(selector)).to be true
             end
 
             context "using $in and $ne in the $elemMatch to include the element" do
@@ -200,7 +228,7 @@ describe Mongoid::Matchable do
               end
 
               it "returns true" do
-                expect(document.locations.first.matches?(selector)).to be true
+                expect(document.locations.first._matches?(selector)).to be true
               end
             end
           end
@@ -214,7 +242,7 @@ describe Mongoid::Matchable do
             end
 
             it "returns false" do
-              expect(document.locations.first.matches?(selector)).to be false
+              expect(document.locations.first._matches?(selector)).to be false
             end
 
             context "using $ne in the $elemMatch to exclude the element" do
@@ -226,7 +254,7 @@ describe Mongoid::Matchable do
               end
 
               it "returns false" do
-                expect(document.locations.first.matches?(selector)).to be false
+                expect(document.locations.first._matches?(selector)).to be false
               end
             end
           end
@@ -247,7 +275,7 @@ describe Mongoid::Matchable do
         end
 
         it "returns true" do
-          expect(document.matches?(selector)).to be true
+          expect(document._matches?(selector)).to be true
         end
       end
 
@@ -258,7 +286,29 @@ describe Mongoid::Matchable do
         end
 
         it "returns false" do
-          expect(document.matches?(selector)).to be false
+          expect(document._matches?(selector)).to be false
+        end
+      end
+
+      context 'when a BSON::Regexp::Raw object is used' do
+
+        let(:selector) do
+          { street: BSON::Regexp::Raw.new("^Clarkenwell") }
+        end
+
+        it "returns true" do
+          expect(document._matches?(selector)).to be true
+        end
+      end
+
+      context 'when a native Regexp object is used' do
+
+        let(:selector) do
+          { street: /^Clarkenwell/ }
+        end
+
+        it "returns true" do
+          expect(document._matches?(selector)).to be true
         end
       end
     end
@@ -283,7 +333,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -294,7 +344,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -308,7 +358,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -319,7 +369,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -333,7 +383,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -344,7 +394,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -358,7 +408,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -369,7 +419,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -383,7 +433,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -394,7 +444,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -408,7 +458,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -419,7 +469,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -437,7 +487,7 @@ describe Mongoid::Matchable do
             end
 
             it "returns true" do
-              expect(document.matches?(selector)).to be true
+              expect(document._matches?(selector)).to be true
             end
           end
 
@@ -450,7 +500,7 @@ describe Mongoid::Matchable do
             end
 
             it "returns false" do
-              expect(document.matches?(selector)).to be false
+              expect(document._matches?(selector)).to be false
             end
           end
         end
@@ -470,7 +520,7 @@ describe Mongoid::Matchable do
                 end
 
                 it "returns true" do
-                  expect(document.matches?(selector)).to be true
+                  expect(document._matches?(selector)).to be true
                 end
               end
 
@@ -483,7 +533,7 @@ describe Mongoid::Matchable do
                 end
 
                 it "returns false" do
-                  expect(document.matches?(selector)).to be false
+                  expect(document._matches?(selector)).to be false
                 end
               end
             end
@@ -499,7 +549,7 @@ describe Mongoid::Matchable do
                 end
 
                 it "returns true" do
-                  expect(document.matches?(selector)).to be true
+                  expect(document._matches?(selector)).to be true
                 end
               end
 
@@ -512,7 +562,7 @@ describe Mongoid::Matchable do
                 end
 
                 it "returns false" do
-                  expect(document.matches?(selector)).to be false
+                  expect(document._matches?(selector)).to be false
                 end
               end
             end
@@ -530,7 +580,7 @@ describe Mongoid::Matchable do
             end
 
             it "returns true" do
-              expect(document.matches?(selector)).to be true
+              expect(document._matches?(selector)).to be true
             end
           end
 
@@ -543,7 +593,7 @@ describe Mongoid::Matchable do
             end
 
             it "returns false" do
-              expect(document.matches?(selector)).to be false
+              expect(document._matches?(selector)).to be false
             end
           end
         end
@@ -558,7 +608,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -569,7 +619,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -583,7 +633,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -594,7 +644,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -608,7 +658,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -619,7 +669,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -633,7 +683,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -644,7 +694,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -658,7 +708,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -669,7 +719,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -683,7 +733,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -694,7 +744,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -708,7 +758,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -719,7 +769,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -733,7 +783,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -744,7 +794,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end
@@ -758,7 +808,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns true" do
-            expect(document.matches?(selector)).to be true
+            expect(document._matches?(selector)).to be true
           end
         end
 
@@ -769,7 +819,7 @@ describe Mongoid::Matchable do
           end
 
           it "returns false" do
-            expect(document.matches?(selector)).to be false
+            expect(document._matches?(selector)).to be false
           end
         end
       end

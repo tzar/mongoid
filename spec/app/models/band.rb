@@ -13,13 +13,17 @@ class Band
   field :upserted, type: Mongoid::Boolean, default: false
   field :created, type: DateTime
   field :sales, type: BigDecimal
+  field :decimal, type: BSON::Decimal128
   field :y, as: :years, type: Integer
   field :founded, type: Date
   field :deleted, type: Boolean
 
   embeds_many :records, cascade_callbacks: true
   embeds_many :notes, as: :noteable, cascade_callbacks: true, validate: false
+  embeds_many :labels
   embeds_one :label, cascade_callbacks: true
+
+  has_many :same_name, class_name: 'Agent', inverse_of: :same_name
 
   after_upsert do |doc|
     doc.upserted = true

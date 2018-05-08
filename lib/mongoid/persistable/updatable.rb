@@ -26,12 +26,7 @@ module Mongoid
       def update_attribute(name, value)
         as_writable_attribute!(name, value) do |access|
           normalized = name.to_s
-          setter = "#{normalized}="
-          if respond_to?(setter)
-            send(setter, value)
-          else
-            write_attribute(access, value)
-          end
+          process_attribute(normalized, value)
           save(validate: false)
         end
       end
@@ -139,9 +134,9 @@ module Mongoid
           unless updates.empty?
             coll = collection(_root)
             selector = atomic_selector
-            coll.find(selector).update_one(positionally(selector, updates))
+            coll.find(selector).update_one(positionally(selector, updates), session: session)
             conflicts.each_pair do |key, value|
-              coll.find(selector).update_one(positionally(selector, { key => value }))
+              coll.find(selector).update_one(positionally(selector, { key => value }), session: session)
             end
           end
         end
