@@ -31,7 +31,7 @@ module Mongoid
         touches = touch_atomic_updates(field)
         unless touches["$set"].blank?
           selector = atomic_selector
-          _root.collection.find(selector).update_one(positionally(selector, touches))
+          _root.collection.find(selector).update_one(positionally(selector, touches), session: _session)
         end
         run_callbacks(:touch)
         true
@@ -81,7 +81,7 @@ module Mongoid
         # @return [ Symbol ] The method name.
         def define_relation_touch_method(name, extra_field = nil)
           method_name = "touch_#{name}_after_create_or_destroy"
-          class_eval <<-TOUCH
+          class_eval <<-TOUCH, __FILE__, __LINE__ + 1
             def #{method_name}
               without_autobuild do
                 relation = __send__(:#{name})

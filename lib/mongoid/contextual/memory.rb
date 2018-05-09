@@ -44,11 +44,12 @@ module Mongoid
         deleted = count
         removed = map do |doc|
           prepare_remove(doc)
-          doc.as_document
+          doc.send(:as_attributes)
         end
         unless removed.empty?
           collection.find(selector).update_one(
-            positionally(selector, "$pullAll" => { path => removed })
+            positionally(selector, "$pullAll" => { path => removed }),
+            session: _session
           )
         end
         deleted
@@ -140,7 +141,7 @@ module Mongoid
       # @example Create the new context.
       #   Memory.new(criteria)
       #
-      # @param [ Criteria ] The criteria.
+      # @param [ Criteria ] criteria The criteria.
       #
       # @since 3.0.0
       def initialize(criteria)
@@ -148,7 +149,7 @@ module Mongoid
         @documents = criteria.documents.select do |doc|
           @root ||= doc._root
           @collection ||= root.collection
-          doc.matches?(criteria.selector)
+          doc._matches?(criteria.selector)
         end
         apply_sorting
         apply_options
@@ -303,7 +304,7 @@ module Mongoid
           updates["$set"].merge!(doc.atomic_updates["$set"] || {})
           doc.move_changes
         end
-        collection.find(selector).update_one(updates) unless updates["$set"].empty?
+        collection.find(selector).update_one(updates, session: _session) unless updates["$set"].empty?
       end
 
       # Get the limiting value.
@@ -373,6 +374,7 @@ module Mongoid
       #
       # @since 3.0.0
       def apply_options
+        raise Errors::InMemoryCollationNotSupported.new if criteria.options[:collation]
         skip(criteria.options[:skip]).limit(criteria.options[:limit])
       end
 
@@ -442,6 +444,10 @@ module Mongoid
         documents.delete_one(doc)
         doc._parent.remove_child(doc)
         doc.destroyed = true
+      end
+
+      def _session
+        @criteria.send(:_session)
       end
     end
   end

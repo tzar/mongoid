@@ -5,7 +5,7 @@ describe Mongoid::Relations::Referenced::ManyToMany do
   before(:all) do
     Mongoid.raise_not_found_error = true
     Person.autosave(Person.relations["preferences"].merge!(autosave: true))
-    Person.synced(Person.relations["preferences"])
+    Person._synced(Person.relations["preferences"])
   end
 
   after(:all) do
@@ -2639,6 +2639,17 @@ describe Mongoid::Relations::Referenced::ManyToMany do
 
       it "applies the criteria to the documents" do
         expect(preferences).to eq([ preference_one ])
+      end
+
+      context 'when providing a collation', if: collation_supported? do
+
+        let(:preferences) do
+          person.preferences.where(name: "FIRST").collation(locale: 'en_US', strength: 2).to_a
+        end
+
+        it "applies the collation option to the query" do
+          expect(preferences).to eq([ preference_one ])
+        end
       end
     end
 

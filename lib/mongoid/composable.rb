@@ -75,6 +75,7 @@ module Mongoid
       Scopable,
       Serializable,
       Clients,
+      Clients::Options,
       Shardable,
       Stateful,
       Cacheable,
@@ -82,6 +83,8 @@ module Mongoid
       Traversable,
       Validatable,
       Equality,
+      Relations::Synchronization,
+      Relations::Macros,
       ActiveModel::Model,
       ActiveModel::Validations
     ]

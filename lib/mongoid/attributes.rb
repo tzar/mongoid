@@ -215,7 +215,6 @@ module Mongoid
     #   person.attributes = { :title => "Mr." }
     #
     # @param [ Hash ] attrs The new attributes to set.
-    # @param [ Boolean ] guard_protected_attributes False to skip mass assignment protection.
     #
     # @since 1.0.0
     def write_attributes(attrs = nil)
@@ -240,6 +239,18 @@ module Mongoid
       field = fields[name]
       (selection.values.first == 0 && selection_excluded?(name, selection, field)) ||
         (selection.values.first == 1 && !selection_included?(name, selection, field))
+    end
+
+    # Return type-casted attributes.
+    #
+    # @example Type-casted attributes.
+    #   document.typed_attributes
+    #
+    # @return [ Object ] The hash with keys and values of the type-casted attributes.
+    #
+    # @since 6.1.0
+    def typed_attributes
+      attribute_names.map { |name| [name, send(name)] }.to_h
     end
 
     private
@@ -321,7 +332,7 @@ module Mongoid
     # the value is valid for given a field.
     # For now, only Hash and Array fields are validated.
     #
-    # @param [ String, Symbol ] name The name of the attribute to validate.
+    # @param [ String, Symbol ] access The name of the attribute to validate.
     # @param [ Object ] value The to be validated.
     #
     # @since 3.0.10

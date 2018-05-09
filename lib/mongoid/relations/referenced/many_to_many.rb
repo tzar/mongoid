@@ -37,7 +37,7 @@ module Mongoid
         # @example Concat with other documents.
         #   person.posts.concat([ post_one, post_two ])
         #
-        # @param [ Document, Array<Document> ] *args Any number of documents.
+        # @param [ Document, Array<Document> ] args Any number of documents.
         #
         # @return [ Array<Document> ] The loaded docs.
         #
@@ -284,7 +284,7 @@ module Mongoid
         #
         # @since 3.0.0
         def unsynced(doc, key)
-          doc.synced[key] = false
+          doc._synced[key] = false
           true
         end
 

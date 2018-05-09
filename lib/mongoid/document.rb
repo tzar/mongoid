@@ -110,6 +110,7 @@ module Mongoid
     #
     # @since 1.0.0
     def initialize(attrs = nil)
+      @__parent = nil
       _building do
         @new_record = true
         @attributes ||= {}
@@ -281,7 +282,7 @@ module Mongoid
           relation, stored = send(name), meta.store_as
           if attributes.key?(stored) || !relation.blank?
             if relation
-              attributes[stored] = relation.as_document
+              attributes[stored] = relation.send(:as_attributes)
             else
               attributes.delete(stored)
             end

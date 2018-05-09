@@ -36,14 +36,15 @@ module Mongoid
       # @example Return the list of unused indexes.
       #   Mongoid::Tasks::Database.undefined_indexes
       #
-      # @return Hash{Class => Array(Hash)} The list of undefined indexes by model.
+      # @return [ Array<Hash> ] The list of undefined indexes by model.
+      #
       def undefined_indexes(models = ::Mongoid.models)
         undefined_by_model = {}
 
         models.each do |model|
           unless model.embedded?
             begin
-              model.collection.indexes.each do |index|
+              model.collection.indexes(session: model.send(:_session)).each do |index|
                 # ignore default index
                 unless index['name'] == '_id_'
                   key = index['key'].symbolize_keys
@@ -76,7 +77,7 @@ module Mongoid
           indexes.each do |index|
             key = index['key'].symbolize_keys
             collection = model.collection
-            collection.indexes.drop_one(key)
+            collection.indexes(session: model.send(:_session)).drop_one(key)
             logger.info(
               "MONGOID: Removed index '#{index['name']}' on collection " +
               "'#{collection.name}' in database '#{collection.database.name}'."
@@ -106,6 +107,7 @@ module Mongoid
       end
 
       private
+
       def logger
         Mongoid.logger
       end

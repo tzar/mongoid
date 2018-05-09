@@ -412,7 +412,7 @@ describe Mongoid::Criteria do
       end
 
       let(:criteria) do
-        Band.where(name: "Depeche Mode").asc(:name).includes(:records)
+        Band.where(name: "Depeche Mode").asc(:name).includes(:records).read(mode: :secondary)
       end
 
       before do
@@ -433,7 +433,7 @@ describe Mongoid::Criteria do
       end
 
       it "contains equal options" do
-        expect(clone.options).to eq({ sort: { "name" => 1 }})
+        expect(clone.options).to eq({ sort: { "name" => 1 }, read: { mode: :secondary } })
       end
 
       it "clones the options" do
@@ -466,6 +466,10 @@ describe Mongoid::Criteria do
 
       it "sets the context to nil" do
         expect(clone.instance_variable_get(:@context)).to be_nil
+      end
+
+      it 'does not convert the option keys to string from symbols' do
+        expect(clone.options[:read][:mode]).to eq(:secondary)
       end
     end
   end
@@ -3470,6 +3474,25 @@ describe Mongoid::Criteria do
 
         let(:from_db) do
           Band.where(sales: sales).first
+        end
+
+        it "finds the document by the big decimal value" do
+          expect(from_db).to eq(band)
+        end
+      end
+
+      context "when querying on a BSON::Decimal128", if: decimal128_supported? do
+
+        let(:decimal) do
+          BSON::Decimal128.new("0.0005")
+        end
+
+        let!(:band) do
+          Band.create(name: "Boards of Canada", decimal: decimal)
+        end
+
+        let(:from_db) do
+          Band.where(decimal: decimal).first
         end
 
         it "finds the document by the big decimal value" do

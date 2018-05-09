@@ -14,26 +14,21 @@ module Mongoid
       end
 
       def eager_load(docs)
-        docs.tap do |docs|
+        docs.tap do |d|
           if eager_loadable?
-            preload(criteria.inclusions, docs)
+            preload(criteria.inclusions, d)
           end
         end
       end
 
       def preload(relations, docs)
-        grouped_relations = relations.group_by do |metadata|
-          metadata.inverse_class_name
-        end
-        grouped_relations.keys.each do |_klass|
-          grouped_relations[_klass] = grouped_relations[_klass].group_by do |metadata|
-            metadata.relation
+        relations.group_by(&:inverse_class_name)
+                 .values
+                 .each do |associations|
+          associations.group_by(&:relation)
+                      .each do |relation, association|
+            relation.eager_load_klass.new(association, docs).run
           end
-        end
-        grouped_relations.each do |_klass, associations|
-          docs = associations.collect do |_relation, association|
-            _relation.eager_load_klass.new(association, docs).run
-          end.flatten
         end
       end
     end

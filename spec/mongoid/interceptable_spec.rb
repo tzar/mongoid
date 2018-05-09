@@ -484,31 +484,39 @@ describe Mongoid::Interceptable do
 
       context "when the child does not have the same callback defined" do
 
-        let(:band) do
-          Band.new
+        let(:exhibition) do
+          Exhibition.new
         end
 
-        let!(:record) do
-          band.records.build
+        let!(:exhibitor) do
+          exhibition.exhibitors.build
         end
 
         context "when running the callbacks directly" do
 
           before(:all) do
-            Band.define_model_callbacks(:rearrange)
-            Band.after_rearrange { }
+            Exhibition.define_model_callbacks(:rearrange)
+            Exhibition.after_rearrange { }
           end
 
           after(:all) do
-            Band.reset_callbacks(:rearrange)
+            Exhibition.reset_callbacks(:rearrange)
           end
 
           it "does not cascade to the child" do
-            expect(band.run_callbacks(:rearrange)).to be true
+            expect(exhibition.run_callbacks(:rearrange)).to be true
           end
         end
 
         context "when the callbacks get triggered by a destroy" do
+
+          let(:band) do
+            Band.new
+          end
+
+          let!(:record) do
+            band.records.build
+          end
 
           before(:all) do
             Band.define_model_callbacks(:rearrange)
@@ -518,7 +526,7 @@ describe Mongoid::Interceptable do
           end
 
           after(:all) do
-            Band.reset_callbacks(:rearrange)
+            begin; Band.reset_callbacks(:rearrange); rescue; end
           end
 
           let(:attributes) do
@@ -1149,6 +1157,25 @@ describe Mongoid::Interceptable do
             end
 
             it "persists the change" do
+              expect(band.reload.records.first.before_validation_called).to be true
+            end
+          end
+
+          context 'when the parent is updated' do
+
+            let(:band) do
+              Band.create(name: "Moderat")
+            end
+
+            before do
+              band.update(records: [ { name: 'Black on Both Sides' }])
+            end
+
+            it 'executes the callback' do
+              expect(band.records.first.before_validation_called).to be true
+            end
+
+            it 'persists the change' do
               expect(band.reload.records.first.before_validation_called).to be true
             end
           end

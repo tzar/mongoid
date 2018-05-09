@@ -3,12 +3,14 @@ require "mongoid/clients/factory"
 require "mongoid/clients/validators"
 require "mongoid/clients/storage_options"
 require "mongoid/clients/options"
+require "mongoid/clients/sessions"
 
 module Mongoid
   module Clients
     extend ActiveSupport::Concern
     include StorageOptions
     include Options
+    include Sessions
 
     class << self
 
@@ -33,7 +35,7 @@ module Mongoid
       #
       # @since 3.0.0
       def default
-        clients[:default] ||= Clients::Factory.default
+        with_name(:default)
       end
 
       # Disconnect all active clients.
@@ -61,7 +63,11 @@ module Mongoid
       #
       # @since 3.0.0
       def with_name(name)
-        clients[name.to_sym] ||= Clients::Factory.create(name)
+        name_as_symbol = name.to_sym
+        return clients[name_as_symbol] if clients[name_as_symbol]
+        CREATE_LOCK.synchronize do
+          clients[name_as_symbol] ||= Clients::Factory.create(name)
+        end
       end
 
       def set(name, client)
@@ -71,6 +77,10 @@ module Mongoid
       def clients
         @clients ||= {}
       end
+
+      private
+
+      CREATE_LOCK = Mutex.new
     end
   end
 end

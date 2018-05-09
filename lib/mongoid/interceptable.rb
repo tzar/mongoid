@@ -49,7 +49,7 @@ module Mongoid
     # @example Is the callback executable?
     #   document.callback_executable?(:save)
     #
-    # @param [ Symbol ] kin The type of callback.
+    # @param [ Symbol ] kind The type of callback.
     #
     # @return [ true, false ] If the callback can be executed.
     #
@@ -121,7 +121,7 @@ module Mongoid
     #   end
     #
     # @param [ Symbol ] kind The type of callback to execute.
-    # @param [ Array ] *args Any options.
+    # @param [ Array ] args Any options.
     #
     # @return [ Document ] The document
     #
@@ -202,7 +202,7 @@ module Mongoid
     #
     # @since 2.3.0
     def cascadable_child?(kind, child, metadata)
-      return false if kind == :initialize || kind == :find
+      return false if kind == :initialize || kind == :find || kind == :touch
       return false if kind == :validate && metadata.validate?
       child.callback_executable?(kind) ? child.in_callback_state?(kind) : false
     end
@@ -266,8 +266,12 @@ module Mongoid
           chain.append(callback) if callback.kind == place
         end
         self.class.send :define_method, name do
-          runner = ActiveSupport::Callbacks::Filters::Environment.new(self, false, nil)
-          chain.compile.call(runner).value
+          env = ActiveSupport::Callbacks::Filters::Environment.new(self, false, nil)
+          sequence = chain.compile
+          sequence.invoke_before(env)
+          env.value = !env.halted
+          sequence.invoke_after(env)
+          env.value
         end
         self.class.send :protected, name
       end

@@ -9,7 +9,7 @@ Installation
    :backlinks: none
    :depth: 1
    :class: singlecol
-   
+
 Install the Gem
 ---------------
 
@@ -26,49 +26,45 @@ To install the gem with bundler, include the following in your Gemfile:
 
 .. code-block:: ruby
 
-    gem 'mongoid', '~> 6.0.0'
+   gem 'mongoid', '~> 6.1.0'
 
 Compatibility
 -------------
 
 Note the following compatibility matrix to determine if Mongoid is
-supported on your runtime and server.
+supported on your runtime and server. Note that Mongoid 6.x is compatible with
+Rails 5 and thus requires >= Ruby 2.2.2.
 
 .. list-table::
    :header-rows: 1
    :widths: 28 30 30 30
 
    * - Ruby Version
-     - 2.4.x
-     - 2.6.x
-     - 3.0.x
-
-   * - MRI 1.8.x
-     - No
-     - No
-     - No
-
-   * - MRI 1.9.x
-     - Yes
-     - Yes
-     - Yes
-
-   * - MRI 2.0.x
-     - Yes
-     - Yes
-     - Yes
+     - MongoDB 3.0.x
+     - MongoDB 3.2.x
+     - MongoDB 3.4.x
 
    * - MRI 2.1.x
+     - No
+     - No
+     - No
+
+   * - MRI 2.2.2
      - Yes
      - Yes
      - Yes
 
-   * - MRI 2.2.x
+   * - MRI 2.3.x
      - Yes
      - Yes
      - Yes
 
-   * - JRuby 1.7.x
+   * - MRI 2.4.1
+     - Yes
+     - Yes
+     - Yes
+
+   * - JRuby 9.1.x
      - Yes
      - Yes
      - Yes
@@ -193,8 +189,8 @@ comments above each key.
           # via ismaster commands. (default: 10)
           heartbeat_frequency: 10
 
-          # The time in seconds for selecting servers for a near read preference. (default: 5)
-          local_threshold: 5
+          # The time in seconds for selecting servers for a near read preference. (default: 0.015)
+          local_threshold: 0.015
 
           # The timeout in seconds for selecting a server for an operation. (default: 30)
           server_selection_timeout: 30
@@ -206,8 +202,8 @@ comments above each key.
           min_pool_size: 1
 
           # The time to wait, in seconds, in the connection pool for a connection
-          # to be checked in before timing out. (default: 5)
-          wait_queue_timeout: 5
+          # to be checked in before timing out. (default: 1)
+          wait_queue_timeout: 1
 
           # The time to wait to establish a connection before timing out, in seconds.
           # (default: 10)

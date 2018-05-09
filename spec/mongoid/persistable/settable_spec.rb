@@ -230,6 +230,22 @@ describe Mongoid::Persistable::Settable do
       end
     end
 
+    context 'when the field is assigned with nil' do
+
+      before do
+        church.location = nil
+        church.set('location.neighborhood' => 'Kreuzberg')
+      end
+
+      it 'updates the hash while keeping existing key and values locally' do
+        expect(church.location).to eq({'neighborhood' => 'Kreuzberg'})
+      end
+
+      it 'updates the hash in the database' do
+        expect(church.reload.location).to eq({'neighborhood' => 'Kreuzberg'})
+      end
+    end
+
     context 'when the field type is String' do
 
       before do
@@ -259,6 +275,65 @@ describe Mongoid::Persistable::Settable do
       it 'updates the fields in the database' do
         expect(church.reload.name).to eq('Church2')
         expect(church.reload.location).to eq({ 'city' => 'Berlin', 'street' => 'Yorckstr.'})
+      end
+    end
+
+    context 'when the field is a nested hash' do
+
+      context 'when the field is reset to an empty hash' do
+
+        before do
+          church.set('location' => {})
+        end
+
+        it 'updates the field locally' do
+          expect(church.location).to eq({})
+        end
+
+        it 'updates the field in the database' do
+          expect(church.reload.location).to eq({})
+        end
+      end
+
+      context 'when a leaf value in the nested hash is updated' do
+
+        let(:church) do
+          Church.new.tap do |a|
+            a.location = {'address' => {'city' => 'Berlin', 'street' => 'Yorckstr'}}
+            a.name = 'Church1'
+            a.save
+          end
+        end
+
+        before do
+          church.set('location.address.city' => 'Munich')
+        end
+
+        it 'does not reset the nested hash' do
+          expect(church.name).to eq('Church1')
+          expect(church.location).to eql({'address' => {'city' => 'Munich', 'street' => 'Yorckstr'}})
+        end
+      end
+
+
+      context 'when the nested hash is many levels deep' do
+
+        let(:church) do
+          Church.new.tap do |a|
+            a.location = {'address' => {'state' => {'address' => {'city' => 'Berlin', 'street' => 'Yorckstr'}}}}
+            a.name = 'Church1'
+            a.save
+          end
+        end
+
+        before do
+          church.set('location.address.state.address.city' => 'Munich')
+        end
+
+        it 'does not reset the nested hash' do
+          expect(church.name).to eq('Church1')
+          expect(church.location).to eql({'address' => {'state' => {'address' => {'city' => 'Munich', 'street' => 'Yorckstr'}}}})
+        end
       end
     end
   end

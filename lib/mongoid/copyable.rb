@@ -14,8 +14,6 @@ module Mongoid
     # @example Clone the document.
     #   document.clone
     #
-    # @param [ Document ] other The document getting cloned.
-    #
     # @return [ Document ] The new document.
     def clone
       # @note This next line is here to address #2704, even though having an
@@ -45,11 +43,9 @@ module Mongoid
     # @example clone document
     #   model.clone_document
     #
-    # @param [ Hash ] dcoument The document with hash format
-    #
     # @since 3.0.22
     def clone_document
-      attrs = as_document.__deep_copy__
+      attrs = as_attributes.__deep_copy__
       process_localized_attributes(self, attrs)
       attrs
     end

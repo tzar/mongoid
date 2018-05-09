@@ -524,6 +524,14 @@ describe Mongoid::Clients do
       it "returns the default client" do
         expect(mongo_client.options[:database].to_s).to eq(database_id)
       end
+
+      it "sets the platform to Mongoid's platform constant" do
+        expect(mongo_client.options[:platform]).to eq(Mongoid::PLATFORM_DETAILS)
+      end
+
+      it "sets the app_name to the config value" do
+        expect(mongo_client.options[:app_name]).to eq('testing')
+      end
     end
 
     context "when no client exists with the key" do
@@ -540,6 +548,59 @@ describe Mongoid::Clients do
         expect {
           band.mongo_client
         }.to raise_error(Mongoid::Errors::NoClientConfig)
+      end
+    end
+
+    context "when getting a client by name" do
+
+      let(:file) do
+        File.join(File.dirname(__FILE__), "..", "config", "mongoid.yml")
+      end
+
+      before do
+        described_class.clear
+        Mongoid.load!(file, :test)
+        Band.store_in(client: :reports)
+      end
+
+      after do
+        mongo_client.close
+        Mongoid::Config.reset
+        Band.reset_storage_options!
+      end
+
+      let(:mongo_client) do
+        Band.new.mongo_client
+      end
+
+      it "uses the reports client" do
+        expect(mongo_client.options[:database].to_s).to eq('reports')
+      end
+
+      it "sets the platform to Mongoid's platform constant" do
+        expect(mongo_client.options[:platform]).to eq(Mongoid::PLATFORM_DETAILS)
+      end
+
+      it "sets the app_name to the config value" do
+        expect(mongo_client.options[:app_name]).to eq('testing')
+      end
+    end
+
+    context 'when the app_name is not set in the config' do
+
+      before do
+        Mongoid::Config.reset
+        Mongoid.configure do |config|
+          config.load_configuration(CONFIG)
+        end
+      end
+
+      let(:mongo_client) do
+        Band.new.mongo_client
+      end
+
+      it 'does not set the Mongoid.app_name option' do
+        expect(mongo_client.options.has_key?(:app_name)).to be(false)
       end
     end
   end
@@ -579,6 +640,14 @@ describe Mongoid::Clients do
 
       it "returns the default client" do
         expect(mongo_client.options[:database].to_s).to eq(database_id)
+      end
+
+      it "sets the platform to Mongoid's platform constant" do
+        expect(mongo_client.options[:platform]).to eq(Mongoid::PLATFORM_DETAILS)
+      end
+
+      it "sets the app_name to the config value" do
+        expect(mongo_client.options[:app_name]).to eq('testing')
       end
     end
 

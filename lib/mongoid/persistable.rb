@@ -69,8 +69,6 @@ module Mongoid
     # @example Raise the validation error.
     #   Person.fail_due_to_validation!(person)
     #
-    # @param [ Document ] document The document to fail.
-    #
     # @raise [ Errors::Validations ] The validation error.
     #
     # @since 4.0.0
@@ -83,7 +81,6 @@ module Mongoid
     # @example Raise the callback error.
     #   Person.fail_due_to_callback!(person, :create!)
     #
-    # @param [ Document ] document The document to fail.
     # @param [ Symbol ] method The method being called.
     #
     # @raise [ Errors::Callback ] The callback error.
@@ -207,7 +204,7 @@ module Mongoid
     def persist_atomic_operations(operations)
       if persisted? && operations
         selector = atomic_selector
-        _root.collection.find(selector).update_one(positionally(selector, operations))
+        _root.collection.find(selector).update_one(positionally(selector, operations), session: _session)
       end
     end
   end

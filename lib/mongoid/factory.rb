@@ -14,11 +14,11 @@ module Mongoid
     #
     # @param [ Class ] klass The class to instantiate from if _type is not present.
     # @param [ Hash ] attributes The document attributes.
-    # @param [ Hash ] options The mass assignment scoping options.
     #
     # @return [ Document ] The instantiated document.
     def build(klass, attributes = nil)
-      type = (attributes || {})[TYPE]
+      attributes ||= {}
+      type = attributes[TYPE] || attributes[TYPE.to_sym]
       if type && klass._types.include?(type)
         type.constantize.new(attributes)
       else

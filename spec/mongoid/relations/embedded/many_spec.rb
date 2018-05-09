@@ -428,22 +428,40 @@ describe Mongoid::Relations::Embedded::Many do
     context "when replacing an existing relation" do
 
       let(:person) do
-        Person.create(addresses: [
+        Person.create(addresses: addresses)
+      end
+
+      let(:addresses) do
+        [
           Address.new(street: "1st St"),
           Address.new(street: "2nd St")
-        ])
+        ]
       end
 
       let(:address) do
         Address.new(street: "3rd St")
       end
 
-      before do
-        person.addresses = [ address ]
+      context "when the replaced relation is different from the existing relation" do
+
+        before do
+          person.addresses = [ address ]
+        end
+
+        it "deletes the old documents" do
+          expect(person.reload.addresses).to eq([ address ])
+        end
       end
 
-      it "deletes the old documents" do
-        expect(person.reload.addresses).to eq([ address ])
+      context "when the replaced relation is identical to the existing relation" do
+
+        before do
+          person.addresses = addresses
+        end
+
+        it "does nothing" do
+          expect(person.reload.addresses).to eq(addresses)
+        end
       end
     end
 
@@ -2565,6 +2583,25 @@ describe Mongoid::Relations::Embedded::Many do
         person.addresses.create(street: "hermannstr")
       end
 
+      context "when the number is zero" do
+
+        let!(:popped) do
+          person.addresses.pop(0)
+        end
+
+        it "returns an empty array" do
+          expect(popped).to eq([])
+        end
+
+        it "does not remove the document from the relation" do
+          expect(person.addresses).to eq([ address_one, address_two ])
+        end
+
+        it "does not persist the pop" do
+          expect(person.reload.addresses).to eq([ address_one, address_two ])
+        end
+      end
+
       context "when the number is not larger than the relation" do
 
         let!(:popped) do
@@ -2617,6 +2654,125 @@ describe Mongoid::Relations::Embedded::Many do
 
         it "returns nil" do
           expect(person.addresses.pop(2)).to be_nil
+        end
+      end
+    end
+  end
+
+  describe "#shift" do
+
+    let(:person) do
+      Person.create
+    end
+
+    context "when no argument is provided" do
+
+      let!(:address_one) do
+        person.addresses.create(street: "sonnenallee")
+      end
+
+      let!(:address_two) do
+        person.addresses.create(street: "hermannstr")
+      end
+
+      let!(:shifted) do
+        person.addresses.shift
+      end
+
+      it "returns the shifted document" do
+        expect(shifted).to eq(address_one)
+      end
+
+      it "removes the document from the relation" do
+        expect(person.addresses).to eq([ address_two ])
+      end
+
+      it "persists the shift" do
+        expect(person.reload.addresses).to eq([ address_two ])
+      end
+    end
+
+    context "when an integer is provided" do
+
+      let!(:address_one) do
+        person.addresses.create(street: "sonnenallee")
+      end
+
+      let!(:address_two) do
+        person.addresses.create(street: "hermannstr")
+      end
+
+      context "when the number is zero" do
+
+        let!(:shifted) do
+          person.addresses.shift(0)
+        end
+
+        it "returns an empty array" do
+          expect(shifted).to eq([])
+        end
+
+        it "does not remove the document from the relation" do
+          expect(person.addresses).to eq([ address_one, address_two ])
+        end
+
+        it "does not persist the shift" do
+          expect(person.reload.addresses).to eq([ address_one, address_two ])
+        end
+      end
+
+      context "when the number is not larger than the relation" do
+
+        let!(:shifted) do
+          person.addresses.shift(2)
+        end
+
+        it "returns the shifted documents" do
+          expect(shifted).to eq([ address_one, address_two ])
+        end
+
+        it "removes the document from the relation" do
+          expect(person.addresses).to be_empty
+        end
+
+        it "persists the shift" do
+          expect(person.reload.addresses).to be_empty
+        end
+      end
+
+      context "when the number is larger than the relation" do
+
+        let!(:shifted) do
+          person.addresses.shift(4)
+        end
+
+        it "returns the shifted documents" do
+          expect(shifted).to eq([ address_one, address_two ])
+        end
+
+        it "removes the document from the relation" do
+          expect(person.addresses).to be_empty
+        end
+
+        it "persists the shift" do
+          expect(person.reload.addresses).to be_empty
+        end
+      end
+    end
+
+    context "when the relation is empty" do
+
+      context "when providing no number" do
+
+        it "returns nil" do
+          expect(person.addresses.shift).to be_nil
+        end
+      end
+
+      context "when providing a number" do
+
+        it "returns nil" do
+          expect(person.addresses.shift(2)).to be_nil
         end
       end
     end
@@ -3828,7 +3984,7 @@ describe Mongoid::Relations::Embedded::Many do
     end
   end
 
-  context "#delete or #clear with before_remove callback" do
+  context "#delete, or #clear, or #pop, or #shift with before_remove callback" do
 
     let(:artist) do
       Artist.new
@@ -3874,35 +4030,81 @@ describe Mongoid::Relations::Embedded::Many do
         end
       end
 
-      context "when errors are raised" do
+      describe "#pop" do
 
         before do
-          expect(artist).to receive(:before_remove_song).and_raise
+          artist.songs.pop
         end
 
-        describe "#delete" do
+        it "executes the callback" do
+          artist.songs.pop
+          expect(artist.before_remove_embedded_called).to be true
+        end
+      end
 
-          it "does not remove the document from the relation" do
-            begin; artist.songs.delete(song); rescue; end
-            expect(artist.songs).to eq([ song ])
-          end
+      describe "#shift" do
+
+        before do
+          artist.songs.shift
         end
 
-        describe "#clear" do
+        it "executes the callback" do
+          artist.songs.shift
+          expect(artist.before_remove_embedded_called).to be true
+        end
+      end
+    end
 
-          before do
-            begin; artist.songs.clear; rescue; end
-          end
+    context "when errors are raised" do
 
-          it "removes the documents from the relation" do
-            expect(artist.songs).to eq([ song ])
-          end
+      before do
+        expect(artist).to receive(:before_remove_song).and_raise
+      end
+
+      describe "#delete" do
+
+        it "does not remove the document from the relation" do
+          begin; artist.songs.delete(song); rescue; end
+          expect(artist.songs).to eq([ song ])
+        end
+      end
+
+      describe "#clear" do
+
+        before do
+          begin; artist.songs.clear; rescue; end
+        end
+
+        it "removes the documents from the relation" do
+          expect(artist.songs).to eq([ song ])
+        end
+      end
+
+      describe "#pop" do
+
+        before do
+          begin; artist.songs.pop; rescue; end
+        end
+
+        it "should remove from collection" do
+          expect(artist.songs).to eq([ song ])
+        end
+      end
+
+      describe "#shift" do
+
+        before do
+          begin; artist.songs.shift; rescue; end
+        end
+
+        it "should remove from collection" do
+          expect(artist.songs).to eq([ song ])
         end
       end
     end
   end
 
-  context "#delete or #clear with after_remove callback" do
+  context "#delete, or #clear, or #pop, or #shift with after_remove callback" do
 
     let(:artist) do
       Artist.new
@@ -3939,6 +4141,30 @@ describe Mongoid::Relations::Embedded::Many do
           expect(artist.after_remove_embedded_called).to be true
         end
       end
+
+      describe "#pop" do
+
+        before do
+          artist.labels.pop
+        end
+
+        it "executes the callback" do
+          artist.labels.pop
+          expect(artist.after_remove_embedded_called).to be true
+        end
+      end
+
+      describe "#shift" do
+
+        before do
+          artist.labels.shift
+        end
+
+        it "executes the callback" do
+          artist.labels.shift
+          expect(artist.after_remove_embedded_called).to be true
+        end
+      end
     end
 
     context "when errors are raised" do
@@ -3962,6 +4188,28 @@ describe Mongoid::Relations::Embedded::Many do
 
         before do
           begin; artist.labels.clear; rescue; end
+        end
+
+        it "should remove from collection" do
+          expect(artist.labels).to be_empty
+        end
+      end
+
+      describe "#pop" do
+
+        before do
+          begin; artist.labels.pop; rescue; end
+        end
+
+        it "should remove from collection" do
+          expect(artist.labels).to be_empty
+        end
+      end
+
+      describe "#shift" do
+
+        before do
+          begin; artist.labels.shift; rescue; end
         end
 
         it "should remove from collection" do

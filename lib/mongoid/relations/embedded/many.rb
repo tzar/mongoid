@@ -36,7 +36,8 @@ module Mongoid
         # @example Push a document.
         #   person.addresses.push(address)
         #
-        # @param [ Document, Array<Document> ] *args Any number of documents.
+        # @param [ Document, Array<Document> ] args Any number of documents.
+        #
         def <<(*args)
           docs = args.flatten
           return concat(docs) if docs.size > 1
@@ -57,11 +58,7 @@ module Mongoid
         #
         # @since 2.0.0.rc.1
         def as_document
-          attributes = []
-          _unscoped.each do |doc|
-            attributes.push(doc.as_document)
-          end
-          attributes
+          as_attributes.collect { |attrs| BSON::Document.new(attrs) }
         end
 
         # Appends an array of documents to the relation. Performs a batch
@@ -297,6 +294,29 @@ module Mongoid
           end
         end
 
+        # Shift documents off the relation. This can be a single document or
+        # multiples, and will automatically persist the changes.
+        #
+        # @example Shift a single document.
+        #   relation.shift
+        #
+        # @example Shift multiple documents.
+        #   relation.shift(3)
+        #
+        # @param [ Integer ] count The number of documents to shift, or 1 if not
+        #   provided.
+        #
+        # @return [ Document, Array<Document> ] The shifted document(s).
+        def shift(count = nil)
+          if count
+            if target.size > 0 && docs = target[0, count]
+              docs.each { |doc| delete(doc) }
+            end
+          else
+            delete(target[0])
+          end
+        end
+
         # Substitutes the supplied target documents for the existing documents
         # in the relation.
         #
@@ -353,8 +373,6 @@ module Mongoid
         #
         # @example Create the binding.
         #   relation.binding([ address ])
-        #
-        # @param [ Array<Document> ] new_target The new documents to bind with.
         #
         # @return [ Binding ] The many binding.
         #
@@ -478,7 +496,7 @@ module Mongoid
         #   relation.remove_all({ :num => 1 }, true)
         #
         # @param [ Hash ] conditions Conditions to filter by.
-        # @param [ true, false ] destroy If true then destroy, else delete.
+        # @param [ true, false ] method
         #
         # @return [ Integer ] The number of documents removed.
         def remove_all(conditions = {}, method = :delete)
@@ -512,6 +530,14 @@ module Mongoid
         # @since 2.4.0
         def _unscoped=(docs)
           @_unscoped = docs
+        end
+
+        def as_attributes
+          attributes = []
+          _unscoped.each do |doc|
+            attributes.push(doc.as_document)
+          end
+          attributes
         end
 
         class << self

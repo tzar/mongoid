@@ -40,7 +40,7 @@ module Mongoid
         # @example Concat with other documents.
         #   person.posts.concat([ post_one, post_two ])
         #
-        # @param [ Document, Array<Document> ] *args Any number of documents.
+        # @param [ Document, Array<Document> ] args Any number of documents.
         #
         # @return [ Array<Document> ] The loaded docs.
         #
@@ -208,7 +208,7 @@ module Mongoid
         # @note This will keep matching documents in memory for iteration
         #   later.
         #
-        # @param [ BSON::ObjectId, Array<BSON::ObjectId> ] arg The ids.
+        # @param [ BSON::ObjectId, Array<BSON::ObjectId> ] args The ids.
         #
         # @return [ Document, Criteria ] The matching document(s).
         #
@@ -385,8 +385,6 @@ module Mongoid
         # @example Get the binding.
         #   relation.binding([ address ])
         #
-        # @param [ Array<Document> ] new_target The new documents to bind with.
-        #
         # @return [ Binding ] The binding.
         #
         # @since 2.0.0.rc.1
@@ -479,7 +477,7 @@ module Mongoid
         # @since 3.0.0
         def persist_delayed(docs, inserts)
           unless docs.empty?
-            collection.insert_many(inserts)
+            collection.insert_many(inserts, session: _session)
             docs.each do |doc|
               doc.new_record = false
               doc.run_after_callbacks(:create, :save)
@@ -510,7 +508,7 @@ module Mongoid
         #   person.posts.delete_all({ :title => "Testing" })
         #
         # @param [ Hash ] conditions Optional conditions to delete with.
-        # @param [ Symbol ] The deletion method to call.
+        # @param [ Symbol ] method The deletion method to call.
         #
         # @return [ Integer ] The number of documents deleted.
         #
@@ -519,7 +517,7 @@ module Mongoid
           selector = conditions || {}
           removed = klass.send(method, selector.merge!(criteria.selector))
           target.delete_if do |doc|
-            if doc.matches?(selector)
+            if doc._matches?(selector)
               unbind_one(doc) and true
             end
           end
@@ -569,7 +567,7 @@ module Mongoid
           if doc.new_record? && doc.valid?(:create)
             doc.run_before_callbacks(:save, :create)
             docs.push(doc)
-            inserts.push(doc.as_document)
+            inserts.push(doc.send(:as_attributes))
           else
             doc.save
           end
@@ -609,14 +607,12 @@ module Mongoid
           # @since 2.1.0
           def criteria(metadata, object, type = nil)
             apply_ordering(
-              with_inverse_field_criterion(
-                with_polymorphic_criterion(
-                  metadata.klass.where(metadata.foreign_key => object),
-                  metadata,
-                  type
-                ),
-                metadata
-              ), metadata
+              with_polymorphic_criterion(
+                metadata.klass.where(metadata.foreign_key => object),
+                 metadata,
+                 type
+              ),
+              metadata
             )
           end
 
@@ -803,8 +799,8 @@ module Mongoid
           # @since 3.0.0
           def with_inverse_field_criterion(criteria, metadata)
             inverse_metadata = metadata.inverse_metadata(metadata.klass)
-            if inverse_metadata.try(:inverse_of_field)
-              criteria.any_in(inverse_metadata.inverse_of_field => [ metadata.name, nil ])
+            if inverse_metadata.try(:inverse_of)
+              criteria.any_in(inverse_metadata.inverse_of => [ metadata.name, nil ])
             else
               criteria
             end
